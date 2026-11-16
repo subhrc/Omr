@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMR શીટ અને ચેકર</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--red:#c62828;--red2:#fbe3e3;--ink:#1d1d1f;--mut:#6b6b70;--line:#e6e1e1;--bg:#faf7f7;--ok:#1b8a3a;--bad:#d32f2f;--warn:#e08a00}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Noto Sans Gujarati',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;-webkit-tap-highlight-color:transparent}
+header{background:var(--red);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:8px;padding:6px 10px;font:inherit}
+main{max-width:760px;margin:0 auto;padding:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{font-size:16px;margin:0 0 10px}
+label.f{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input[type=text],input[type=number],select{width:100%;padding:10px;border:1px solid #d8d2d2;border-radius:8px;font:inherit;background:#fff}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:10px;padding:11px 14px;font:inherit;font-weight:700;background:var(--red);color:#fff;cursor:pointer}
+.btn.sec{background:#fff;color:var(--red);border:1.5px solid var(--red)}
+.btn.ghost{background:#f1eded;color:var(--ink);font-weight:400}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5}
+.tabs{display:flex;gap:6px;margin-bottom:12px;position:sticky;top:50px;background:var(--bg);padding:6px 0;z-index:4}
+.tabs button{flex:1;border:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 4px;font:inherit;font-size:14px}
+.tabs button.on{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
+.exam{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#fff;cursor:pointer}
+.exam b{display:block}.exam small{color:var(--mut)}
+.exam .go{margin-left:auto;color:var(--red);font-size:20px}
+.muted{color:var(--mut);font-size:13px}
+.preview{width:100%;border:1px solid var(--line);border-radius:6px;display:block;background:#fff}
+.keygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
+.krow{display:flex;align-items:center;gap:4px}
+.krow span{width:26px;text-align:right;font-size:13px;color:var(--mut);margin-right:2px}
+.krow button{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--red);background:#fff;color:var(--red);font:inherit;font-size:12px;padding:0}
+.krow button.on{background:var(--red);color:#fff}
+.stat{display:flex;gap:8px;text-align:center;margin:10px 0}
+.stat div{flex:1;border-radius:10px;padding:8px 4px;background:#f6f3f3}
+.stat b{display:block;font-size:20px}
+.stat .g b{color:var(--ok)}.stat .r b{color:var(--bad)}.stat .y b{color:var(--warn)}
+canvas.res{width:100%;border-radius:8px;display:block;touch-action:manipulation}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:12px;color:var(--mut);font-weight:400}
+tr.cl{cursor:pointer}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;background:#f1eded}
+.note{background:#fff6e5;border:1px solid #f3dca8;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+.err{background:#fdecec;border:1px solid #f4bcbc;border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.hide{display:none!important}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:20;max-width:90%}
+#toast.on{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:30;padding:20px}
+.modal .card{max-width:380px;width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--mut);margin:6px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.bar{height:6px;background:#eee;border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1.5px solid #d8d2d2;background:#fff;border-radius:20px;padding:7px 12px;font:inherit;font-size:14px}
+.chip.on{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.spin{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header><button id="backBtn" class="hide">←</button><h1 id="title">OMR શીટ અને ચેકર</h1><span id="sync" class="muted" style="color:#fff;opacity:.8;font-size:12px"></span></header>
+<main id="app"></main>
+<div id="toast"></div>
+<input type="file" id="camIn" accept="image/*" capture="environment" class="hide">
+<input type="file" id="galIn" accept="image/*" class="hide">
+
+<script>
+/* OMR core: layout, sheet drawing, detection and reading. Works in browser and node. */
+(function (G) {
+  'use strict';
+  const PAGE = { w: 210, h: 297 };
+  // marker centres, clockwise from top-left (mm)
+  const MK = [{ x: 12, y: 12 }, { x: 198, y: 12 }, { x: 198, y: 285 }, { x: 12, y: 285 }];
+  const MK_SIZE = 7;
+  const BAR = { x: 24, y: 140, w: 9, h: 50 }; // barcode area = orientation check
+  const BR = 2.0; // answer bubble radius
+  const RBR = 1.8; // roll bubble radius
+  const ROLL = { cx: 38, y0: 41, dy: 4.5 };
+  const rollDx = (d) => (d === 8 ? 5.4 : 8);
+  const rollX = (d, i) => ROLL.cx - ((d - 1) * rollDx(d)) / 2 + i * rollDx(d);
+  const GRID = { x0: 44, colW: 37.5, optX: 13.5, optDx: 7, y0: 106, dy: 5.5, gGap: 2, cols: 4 };
+  const FONT = "'Noto Sans Gujarati','Shruti','Nirmala UI',sans-serif";
+  const THEMES = {
+    red: { ink: '#d32f2f', shade: '#f8d6d6', band: '#f2b5b5', letter: '#d32f2f' },
+    bw: { ink: '#000000', shade: '#e6e6e6', band: '#cfcfcf', letter: '#777777' },
+  };
+
+  function optLabels(style) {
+    return style === 'guj' ? ['અ', 'બ', 'ક', 'ડ'] : ['A', 'B', 'C', 'D'];
+  }
+  function rowY(r) { return GRID.y0 + r * GRID.dy + Math.floor(r / 5) * GRID.gGap; }
+
+  function layout(n, rd) {
+    rd = rd === 8 ? 8 : 4;
+    n = Math.max(1, Math.min(100, n | 0));
+    const cols = GRID.cols, rows = Math.ceil(n / cols);
+    const q = [];
+    for (let i = 0; i < n; i++) {
+      const c = Math.floor(i / rows), r = i % rows;
+      const bx = GRID.x0 + c * GRID.colW, y = rowY(r);
+      const opts = [];
+      for (let k = 0; k < 4; k++) opts.push({ x: bx + GRID.optX + k * GRID.optDx, y, r: BR });
+      q.push({ num: i + 1, x: bx, y, r, c, opts });
+    }
+    const roll = [];
+    for (let d = 0; d < rd; d++) {
+      const col = [];
+      for (let k = 0; k < 10; k++) col.push({ x: rollX(rd, d), y: ROLL.y0 + k * ROLL.dy, r: RBR });
+      roll.push(col);
+    }
+    return { n, rd, cols, rows, q, roll };
+  }
+
+  function sheetNo(exam) {
+    let h = 7;
+    for (const ch of String(exam.id || exam.name || 'x')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return String(2000000 + (h % 7999999));
+  }
+
+  /* ---------- drawing ---------- */
+  function drawSheet(ctx, s, exam) {
+    const L = layout(exam.n, exam.rollDigits);
+    const T = THEMES[exam.color === 'bw' ? 'bw' : 'red'];
+    const labels = optLabels(exam.labels);
+    const mm = (v) => v * s;
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, mm(PAGE.w), mm(PAGE.h));
+
+    const text = (t, x, y, size, opt = {}) => {
+      ctx.font = `${opt.bold ? '700 ' : ''}${mm(size)}px ${FONT}`;
+      ctx.textAlign = opt.align || 'left';
+      ctx.textBaseline = opt.base || 'alphabetic';
+      ctx.fillStyle = opt.color || T.ink;
+      ctx.fillText(t, mm(x), mm(y), opt.max ? mm(opt.max) : undefined);
+    };
+    const line = (x1, y1, x2, y2, w = 0.3) => {
+      ctx.strokeStyle = T.ink; ctx.lineWidth = mm(w);
+      ctx.beginPath(); ctx.moveTo(mm(x1), mm(y1)); ctx.lineTo(mm(x2), mm(y2)); ctx.stroke();
+    };
+    const rect = (x, y, w, h, lw = 0.35, fill) => {
+      if (fill) { ctx.fillStyle = fill; ctx.fillRect(mm(x), mm(y), mm(w), mm(h)); }
+      if (lw) { ctx.strokeStyle = T.ink; ctx.lineWidth = mm(lw); ctx.strokeRect(mm(x), mm(y), mm(w), mm(h)); }
+    };
+    const bubble = (x, y, r, label, size) => {
+      ctx.beginPath(); ctx.arc(mm(x), mm(y), mm(r), 0, Math.PI * 2);
+      ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.strokeStyle = T.ink; ctx.lineWidth = mm(0.25); ctx.stroke();
+      text(String(label), x, y + 0.12, size, { align: 'center', base: 'middle', color: T.letter });
+    };
+
+    // corner markers (black, needed for scanning)
+    ctx.fillStyle = '#000';
+    for (const m of MK) ctx.fillRect(mm(m.x - MK_SIZE / 2), mm(m.y - MK_SIZE / 2), mm(MK_SIZE), mm(MK_SIZE));
+
+    /* ---- top-left: roll number ---- */
+    rect(16, 18, 44, 67);
+    rect(16, 18, 44, 6, 0.35);
+    text('(વિદ્યાર્થીએ ભરવું)', 38, 22.4, 2.7, { align: 'center', bold: true });
+    text('રોલ નંબર', 38, 27.6, 2.8, { align: 'center' });
+    text('Roll No.', 38, 31, 2.5, { align: 'center' });
+    const bw = L.rd === 8 ? 4.8 : 6.8;
+    for (let d = 0; d < L.rd; d++) {
+      const x = rollX(L.rd, d);
+      rect(x - bw / 2, 32.6, bw, 5, 0.3);
+      L.roll[d].forEach((b, k) => bubble(b.x, b.y, b.r, k, 2.2));
+    }
+
+    /* ---- middle: name etc ---- */
+    text('વિદ્યાર્થીનું નામ (સ્પષ્ટ અક્ષરોમાં)', 64, 21.5, 3.1, { bold: true });
+    text('NAME OF THE STUDENT', 64, 25.2, 2.7, { bold: true });
+    rect(64, 27, 86, 14);
+    text('ધોરણ / Std.', 64, 47, 2.9, { bold: true });
+    rect(64, 48.5, 40, 10);
+    text('તારીખ / Date', 110, 47, 2.9, { bold: true });
+    rect(110, 48.5, 40, 10);
+    text('પરીક્ષા / EXAM', 64, 64.5, 2.9, { bold: true });
+    rect(64, 66, 86, 19);
+    const ex = exam.name || '', sb = exam.subject || '';
+    if (ex) text(ex, 107, 74, 3.6, { align: 'center', bold: true, max: 82, color: '#000' });
+    if (sb) text(sb, 107, 81, 3.2, { align: 'center', max: 82, color: '#000' });
+
+    /* ---- right: teacher ---- */
+    rect(154, 18, 40, 67);
+    rect(154, 18, 40, 6, 0.35);
+    text('(શિક્ષકે ભરવું)', 174, 22.4, 2.7, { align: 'center', bold: true });
+    const tb = [['કુલ પ્રશ્નો / Total Q.', String(L.n)], ['સાચા જવાબ / Correct', ''], ['મેળવેલ ગુણ / Marks', '']];
+    tb.forEach(([lab, val], i) => {
+      const y = 29 + i * 18.5;
+      text(lab, 174, y, 2.5, { align: 'center', max: 37 });
+      rect(160, y + 2, 28, 11, 0.3);
+      if (val) text(val, 174, y + 9.8, 5, { align: 'center', bold: true, color: '#000' });
+    });
+
+    /* ---- answers ---- */
+    const gx0 = GRID.x0, gw = GRID.colW * GRID.cols;
+    const top = GRID.y0 - 13.5;
+    rect(gx0, top, gw, 6, 0.35, T.band);
+    text('જવાબો  /  ANSWERS', gx0 + gw / 2, top + 4.5, 3.6, { align: 'center', bold: true });
+    const shTop = top + 6, gridBottom = rowY(L.rows - 1) + 3.2;
+    for (let c = 0; c < GRID.cols; c++) {
+      const bx = gx0 + c * GRID.colW;
+      // group shading (checkerboard like printed OMR)
+      for (let g = 0; g * 5 < L.rows; g++) {
+        if ((g + c) % 2 === 0) continue;
+        const r0 = g * 5, r1 = Math.min(L.rows - 1, r0 + 4);
+        ctx.fillStyle = T.shade;
+        ctx.fillRect(mm(bx), mm(rowY(r0) - 2.75), mm(GRID.colW), mm(rowY(r1) - rowY(r0) + 5.5));
+      }
+      rect(bx, shTop, GRID.colW, 4.5, 0.3);
+      text('પ્ર.નં.', bx + 4.6, shTop + 3.3, 2.3, { align: 'center' });
+      text('જવાબ / Response', bx + 23.5, shTop + 3.3, 2.4, { align: 'center' });
+      line(bx + 9.2, shTop, bx + 9.2, gridBottom, 0.3);
+      rect(bx, shTop, GRID.colW, gridBottom - shTop, 0.35);
+    }
+    for (const q of L.q) {
+      text(String(q.num).padStart(2, '0'), q.x + 4.6, q.y + 1, 2.8, { align: 'center', color: '#222' });
+      q.opts.forEach((o, k) => bubble(o.x, o.y, o.r, labels[k], 2.4));
+    }
+
+    /* ---- left strip: barcode + info ---- */
+    rect(17, 108, 24, 88, 0.3);
+    ctx.save(); ctx.translate(mm(20.2), mm(193)); ctx.rotate(-Math.PI / 2);
+    ctx.font = `${mm(2.4)}px ${FONT}`; ctx.fillStyle = T.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('ઉત્તરપત્રિકા નં. / Sheet No.', 0, 0);
+    ctx.restore();
+    // barcode (decorative but also orientation key)
+    const no = sheetNo(exam);
+    ctx.fillStyle = '#000';
+    let y = BAR.y - BAR.h / 2, seed = +no;
+    while (y < BAR.y + BAR.h / 2 - 0.5) {
+      seed = (seed * 1103515245 + 12345) >>> 0;
+      const bh = 0.7 + (seed % 5) * 0.25, gap = 0.45 + ((seed >> 4) % 3) * 0.2;
+      ctx.fillRect(mm(BAR.x - BAR.w / 2), mm(y), mm(BAR.w), mm(Math.min(bh, BAR.y + BAR.h / 2 - y)));
+      y += bh + gap;
+    }
+    ctx.save(); ctx.translate(mm(35.5), mm(BAR.y)); ctx.rotate(-Math.PI / 2);
+    ctx.font = `700 ${mm(3.6)}px ${FONT}`; ctx.fillStyle = T.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(no, 0, 0);
+    ctx.restore();
+    // question-count box
+    rect(17, 200, 24, 34, 0.3);
+    text('પ્રશ્ન સંખ્યા', 29, 205, 2.4, { align: 'center' });
+    text('Questions', 29, 208.5, 2.3, { align: 'center' });
+    text(String(L.n), 29, 222, 8, { align: 'center', bold: true, color: '#000' });
+
+    /* ---- footer ---- */
+    const fy = Math.max(gridBottom + 5, 238);
+    rect(16, fy, 104, 13, 0.3);
+    text('ઉત્તરપત્રિકા નિરીક્ષકને આપતા પહેલાં વિદ્યાર્થીએ રોલ નંબર બરાબર લખી', 18, fy + 4.2, 2.45, { max: 100 });
+    text('અને વર્તુળ ભરી દીધા છે તે ચકાસવું. કાળી/વાદળી બોલપેનથી વર્તુળ પૂરું ભરો.', 18, fy + 7.7, 2.45, { max: 100 });
+    text('Fill the circle completely with black/blue ball pen. One answer only.', 18, fy + 11.1, 2.3, { max: 100 });
+    const sy = fy + 16, sh = Math.min(279 - sy, 20);
+    rect(16, sy, 51, sh, 0.3);
+    rect(69, sy, 51, sh, 0.3);
+    text('વિદ્યાર્થીની સહી / Student\'s Sign', 41.5, sy + sh - 2, 2.3, { align: 'center', max: 49 });
+    text('નિરીક્ષકની સહી / Invigilator\'s Sign', 94.5, sy + sh - 2, 2.3, { align: 'center', max: 49 });
+    rect(124, fy, 70, sy + sh - fy, 0.3);
+    text('શાળાનો સિક્કો', 159, fy + 5, 2.8, { align: 'center', bold: true });
+    text('SCHOOL STAMP', 159, fy + 9, 2.5, { align: 'center' });
+    ctx.restore();
+  }
+
+  /* ---------- image utilities ---------- */
+  function toGray(data, w, h) {
+    const g = new Uint8Array(w * h);
+    for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = data[j];
+    return { g, w, h };
+  }
+
+  function downscale(G, maxDim) {
+    const f = Math.max(1, Math.ceil(Math.max(G.w, G.h) / maxDim));
+    if (f === 1) return { img: G, f: 1 };
+    const w = Math.floor(G.w / f), h = Math.floor(G.h / f), g = new Uint8Array(w * h), ff = f * f;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let dy = 0; dy < f; dy++) { const row = (y * f + dy) * G.w + x * f; for (let dx = 0; dx < f; dx++) s += G.g[row + dx]; }
+      g[y * w + x] = (s / ff) | 0;
+    }
+    return { img: { g, w, h }, f };
+  }
+
+  function findMarkerCandidates(I) {
+    const { g, w, h } = I;
+    const W1 = w + 1, ii = new Float64Array(W1 * (h + 1));
+    for (let y = 0; y < h; y++) { let rs = 0; for (let x = 0; x < w; x++) { rs += g[y * w + x]; ii[(y + 1) * W1 + x + 1] = ii[y * W1 + x + 1] + rs; } }
+    const half = Math.max(8, Math.round(Math.max(w, h) / 14));
+    const mask = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - half), y1 = Math.min(h, y + half + 1);
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - half), x1 = Math.min(w, x + half + 1);
+        const s = ii[y1 * W1 + x1] - ii[y0 * W1 + x1] - ii[y1 * W1 + x0] + ii[y0 * W1 + x0];
+        const mean = s / ((y1 - y0) * (x1 - x0));
+        if (g[y * w + x] < mean * 0.7) mask[y * w + x] = 1;
+      }
+    }
+    const lab = new Int32Array(w * h), stack = new Int32Array(w * h), cands = [];
+    let cur = 0;
+    for (let p = 0; p < w * h; p++) {
+      if (!mask[p] || lab[p]) continue;
+      cur++; let sp = 0; stack[sp++] = p; lab[p] = cur;
+      let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, border = false;
+      while (sp) {
+        const q = stack[--sp], x = q % w, y = (q / w) | 0;
+        n++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
+        if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+        if (x > 0 && mask[q - 1] && !lab[q - 1]) { lab[q - 1] = cur; stack[sp++] = q - 1; }
+        if (x < w - 1 && mask[q + 1] && !lab[q + 1]) { lab[q + 1] = cur; stack[sp++] = q + 1; }
+        if (y > 0 && mask[q - w] && !lab[q - w]) { lab[q - w] = cur; stack[sp++] = q - w; }
+        if (y < h - 1 && mask[q + w] && !lab[q + w]) { lab[q + w] = cur; stack[sp++] = q + w; }
+      }
+      if (border || n < 25) continue;
+      const mx = sx / n, my = sy / n;
+      const vx = sxx / n - mx * mx, vy = syy / n - my * my, vxy = sxy / n - mx * my;
+      const det = vx * vy - vxy * vxy;
+      if (det <= 0) continue;
+      const solidity = n / (12 * Math.sqrt(det));
+      const tr = vx + vy, disc = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+      const elong = (tr / 2 + disc) / Math.max(1e-9, tr / 2 - disc);
+      if (solidity > 0.8 && solidity < 1.25 && elong < 4) cands.push({ x: mx + 0.5, y: my + 0.5, n });
+    }
+    cands.sort((a, b) => b.n - a.n);
+    return cands.slice(0, 14);
+  }
+
+  function orderClockwise(pts) {
+    const cx = pts.reduce((s, p) => s + p.x, 0) / 4, cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+    const o = pts.slice().sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+    // start at the one nearest image top-left
+    let bi = 0; o.forEach((p, i) => { if (p.x + p.y < o[bi].x + o[bi].y) bi = i; });
+    return o.slice(bi).concat(o.slice(0, bi));
+  }
+
+  function quadInfo(p) {
+    let area = 0, sign = 0, convex = true;
+    for (let i = 0; i < 4; i++) {
+      const a = p[i], b = p[(i + 1) % 4], c = p[(i + 2) % 4];
+      area += a.x * b.y - b.x * a.y;
+      const cr = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+      const sg = Math.sign(cr);
+      if (sign === 0) sign = sg; else if (sg !== sign) convex = false;
+    }
+    return { area: Math.abs(area) / 2, convex };
+  }
+
+  function findMarkers(I) {
+    const c = findMarkerCandidates(I);
+    if (c.length < 4) return null;
+    let best = null, bestA = 0;
+    for (let a = 0; a < c.length; a++) for (let b = a + 1; b < c.length; b++)
+      for (let d = b + 1; d < c.length; d++) for (let e = d + 1; e < c.length; e++) {
+        const set = [c[a], c[b], c[d], c[e]];
+        const ns = set.map((s) => s.n);
+        if (Math.min(...ns) / Math.max(...ns) < 0.25) continue;
+        const o = orderClockwise(set), qi = quadInfo(o);
+        if (!qi.convex) continue;
+        if (qi.area > bestA) { bestA = qi.area; best = o; }
+      }
+    if (!best || bestA < 0.12 * I.w * I.h) return null;
+    return best;
+  }
+
+  /* homography mapping (X,Y) -> (x,y) */
+  function homography(src, dst) {
+    const A = [], bv = [];
+    for (let i = 0; i < 4; i++) {
+      const { x: X, y: Y } = src[i], { x, y } = dst[i];
+      A.push([X, Y, 1, 0, 0, 0, -x * X, -x * Y]); bv.push(x);
+      A.push([0, 0, 0, X, Y, 1, -y * X, -y * Y]); bv.push(y);
+    }
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      let p = i; for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]]; [bv[i], bv[p]] = [bv[p], bv[i]];
+      if (Math.abs(A[i][i]) < 1e-12) return null;
+      for (let r = 0; r < n; r++) if (r !== i) {
+        const f = A[r][i] / A[i][i];
+        for (let k = i; k < n; k++) A[r][k] -= f * A[i][k];
+        bv[r] -= f * bv[i];
+      }
+    }
+    const h = bv.map((v, i) => v / A[i][i]);
+    return h.concat([1]);
+  }
+  function apply(H, x, y) {
+    const d = H[6] * x + H[7] * y + 1;
+    return { x: (H[0] * x + H[1] * y + H[2]) / d, y: (H[3] * x + H[4] * y + H[5]) / d };
+  }
+
+  function pix(I, x, y) {
+    const xi = Math.round(x), yi = Math.round(y);
+    if (xi < 0 || yi < 0 || xi >= I.w || yi >= I.h) return 255;
+    return I.g[yi * I.w + xi];
+  }
+  // darkness score of a circle (centre in mm) relative to its surrounding ring
+  function circleScore(I, H, cx, cy, rIn, rRing) {
+    let s = 0, n = 0;
+    const st = rIn / 4;
+    for (let dy = -rIn; dy <= rIn + 1e-9; dy += st) for (let dx = -rIn; dx <= rIn + 1e-9; dx += st) {
+      if (dx * dx + dy * dy > rIn * rIn) continue;
+      const p = apply(H, cx + dx, cy + dy); s += pix(I, p.x, p.y); n++;
+    }
+    const ring = [];
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2, p = apply(H, cx + Math.cos(a) * rRing, cy + Math.sin(a) * rRing);
+      ring.push(pix(I, p.x, p.y));
+    }
+    ring.sort((a, b) => a - b);
+    const bg = Math.max(ring[16], 1); // upper-ish median (paper)
+    return Math.max(0, (bg - s / n) / bg);
+  }
+  function rectScore(I, H, r) {
+    let s = 0, n = 0;
+    for (let y = r.y - r.h / 2 + 0.7; y <= r.y + r.h / 2 - 0.7; y += 0.5) for (let x = r.x - r.w / 2 + 1; x <= r.x + r.w / 2 - 1; x += 1) {
+      const p = apply(H, x, y); s += pix(I, p.x, p.y); n++;
+    }
+    return s / n;
+  }
+
+  function decide(scores, thr, E) {
+    let i1 = -1, i2 = -1;
+    scores.forEach((v, i) => { if (i1 < 0 || v > scores[i1]) { i2 = i1; i1 = i; } else if (i2 < 0 || v > scores[i2]) i2 = i; });
+    if (scores[i1] < thr) return -1;
+    if (i2 >= 0 && scores[i2] >= thr && scores[i2] - E > 0.6 * (scores[i1] - E)) return -2;
+    return i1;
+  }
+
+  /**
+   * Read a sheet from a grayscale image {g,w,h}.
+   * Returns {ok, answers[], rollDigits[], roll, H, quality, ...} or {ok:false, error}
+   */
+  function readSheet(Gimg, n, rd) {
+    const { img: small, f } = downscale(Gimg, 900);
+    const ptsS = findMarkers(small);
+    if (!ptsS) return { ok: false, error: 'markers' };
+    const pts = ptsS.map((p) => ({ x: p.x * f, y: p.y * f }));
+    // try 4 rotations, pick the one where the orientation bar is dark
+    let best = null; const scs = [];
+    for (let k = 0; k < 4; k++) {
+      const dst = [0, 1, 2, 3].map((i) => MK[(i + k) % 4]);
+      const H = homography(dst, pts);
+      if (!H) continue;
+      const sc = 255 - rectScore(Gimg, H, BAR);
+      scs.push(sc);
+      if (!best || sc > best.sc) best = { H, sc, k };
+    }
+    scs.sort((a, b) => b - a);
+    if (!best || scs[0] - scs[1] < 25) return { ok: false, error: 'orientation' };
+    const H = best.H;
+    const L = layout(n, rd);
+    const K = MK.reduce((s, m) => s + circleScore(Gimg, H, m.x, m.y, 2.3, 5.5), 0) / 4;
+    const qScores = L.q.map((q) => q.opts.map((o) => circleScore(Gimg, H, o.x, o.y, o.r * 0.62, o.r + 0.6)));
+    const rScores = L.roll.map((row) => row.map((o) => circleScore(Gimg, H, o.x, o.y, o.r * 0.62, o.r + 0.6)));
+    const all = qScores.flat().concat(rScores.flat()).sort((a, b) => a - b);
+    const E = all[Math.floor(all.length * 0.4)];
+    const thr = Math.max(E + 0.12, E + 0.3 * (K - E));
+    const answers = qScores.map((s) => decide(s, thr, E));
+    const rollDigits = rScores.map((s) => decide(s, thr, E));
+    const roll = rollDigits.every((d) => d < 0) ? '' : rollDigits.map((d) => (d >= 0 ? d : '?')).join('');
+    const roll2 = L.rd === 4 ? roll.replace(/^0+(?=\d)/, '') : roll;
+    return { ok: true, H, answers, rollDigits, roll: roll2, qScores, rScores, thr, E, K, quality: K - E, layout: L, rotation: best.k };
+  }
+
+  G.OMR = { sheetNo, _cands: findMarkerCandidates, _down: downscale, PAGE, MK, BR, layout, drawSheet, toGray, readSheet, apply, optLabels, homography };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2400); };
+
+/* ---------------- storage ---------------- */
+const LKEY = 'omr_exams_v1';
+const Store = {
+  db: null, uid: null, q: {},
+  local() { try { return JSON.parse(localStorage.getItem(LKEY) || '[]'); } catch (e) { return []; } },
+  saveLocal(exams) { try { localStorage.setItem(LKEY, JSON.stringify(exams)); } catch (e) {} },
+  async connect() {
+    try {
+      if (!window.claude || !claude.use) return false;
+      const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+      if (!db || !user) return false;
+      const id = await user.id();
+      if (!id) return false;
+      this.db = db; this.uid = id; return true;
+    } catch (e) { return false; }
+  },
+  col() { return this.db.collection('data/users/' + this.uid); },
+  async loadRemote() {
+    const snap = await this.col().get();
+    return snap.docs.filter((d) => d.exists).map((d) => JSON.parse(JSON.stringify(d.data())));
+  },
+  save(exam) {
+    exam.updatedAt = Date.now();
+    this.saveLocal(S.exams);
+    if (!this.db) return;
+    const body = JSON.parse(JSON.stringify(exam));
+    this.q[exam.id] = (this.q[exam.id] || Promise.resolve()).then(() => this.col().doc(exam.id).set(body))
+      .catch((e) => {
+        const c = e && e.code;
+        if (c === 'quota_exceeded') toast('જગ્યા ભરાઈ ગઈ — જૂની પરીક્ષા કાઢો');
+        else if (['invalid_argument', 'not_granted', 'revoked', 'capability_disabled', 'capability_removed'].includes(c)) { this.db = null; $('#sync').textContent = ''; }
+      });
+  },
+  remove(id) {
+    this.saveLocal(S.exams);
+    if (this.db) this.col().doc(id).delete().catch(() => {});
+  },
+};
+
+/* ---------------- state ---------------- */
+const S = { exams: Store.local(), view: 'home', examId: null, tab: 'sheet', scan: null, keyScan: false, busy: false };
+const cur = () => S.exams.find((e) => e.id === S.examId);
+const L4 = (e) => OMR.optLabels(e.labels);
+let saveT;
+const saveSoon = (e) => { clearTimeout(saveT); saveT = setTimeout(() => Store.save(e), 700); };
+
+function newExam(o) {
+  const n = Math.max(1, Math.min(100, parseInt(o.n) || 20));
+  return { id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: o.name || 'પરીક્ષા', subject: o.subject || '', std: o.std || '',
+    n, rollDigits: o.rollDigits === 8 ? 8 : 4, labels: o.labels || 'abcd', color: o.color || 'red', key: Array(n).fill(-1), mark: 1, neg: 0, results: [], createdAt: Date.now(), updatedAt: Date.now() };
+}
+
+function grade(exam, answers) {
+  let c = 0, w = 0, b = 0, keyed = 0;
+  for (let i = 0; i < exam.n; i++) {
+    const k = exam.key[i]; if (k < 0 || k === undefined) continue; keyed++;
+    const a = answers[i];
+    if (a === k) c++; else if (a === -1 || a === undefined) b++; else w++;
+  }
+  const score = Math.round((c * exam.mark - w * exam.neg) * 100) / 100;
+  return { correct: c, wrong: w, blank: b, keyed, score, total: Math.round(keyed * exam.mark * 100) / 100 };
+}
+
+/* ---------------- downloads ---------------- */
+let dlNS;
+async function download(filename, blob) {
+  try {
+    if (window.claude && claude.use) {
+      if (dlNS === undefined) dlNS = await claude.use('downloads');
+      if (dlNS) { await dlNS.save({ filename, data: blob }); toast('ડાઉનલોડ થયું'); return; }
+      toast('આ જગ્યાએ ડાઉનલોડ ચાલતું નથી — artifact claude.ai માં ખોલો'); return;
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch (e) {
+    if (e && e.code === 'declined') return;
+    toast('ડાઉનલોડ ન થયું' + (e && e.code ? ' (' + e.code + ')' : ''));
+  }
+}
+const libs = {};
+function loadLib(url, test) {
+  if (test()) return Promise.resolve();
+  return libs[url] || (libs[url] = new Promise((res, rej) => { const s = document.createElement('script'); s.src = url; s.onload = res; s.onerror = () => { delete libs[url]; rej(new Error('lib')); }; document.head.appendChild(s); }));
+}
+async function fontsReady() {
+  try { await Promise.all([document.fonts.load('400 20px "Noto Sans Gujarati"', 'અ'), document.fonts.load('700 20px "Noto Sans Gujarati"', 'અ')]); } catch (e) {}
+}
+function sheetCanvas(exam, s) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(210 * s); c.height = Math.round(297 * s);
+  OMR.drawSheet(c.getContext('2d'), s, exam);
+  return c;
+}
+const fname = (e, ext, extra = '') => ((e.name || 'omr') + (e.subject ? '_' + e.subject : '') + extra).replace(/[\\/:*?"<>|]+/g, ' ').trim() + '.' + ext;
+
+/* ---------------- rendering ---------------- */
+function render() {
+  const app = $('#app');
+  const e = cur();
+  $('#backBtn').classList.toggle('hide', S.view === 'home');
+  $('#title').textContent = S.view === 'home' ? 'OMR શીટ અને ચેકર' : (e ? e.name + (e.subject ? ' – ' + e.subject : '') : '');
+  if (S.view === 'home' || !e) { S.view = 'home'; app.innerHTML = homeHTML(); bindHome(); return; }
+  const tabs = [['sheet', '📄 શીટ'], ['key', '🔑 ચાવી'], ['scan', '📷 સ્કેન'], ['res', '📊 પરિણામ']];
+  app.innerHTML = `<div class="tabs">${tabs.map(([k, t]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${t}</button>`).join('')}</div><div id="tabBody"></div>`;
+  app.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { S.tab = b.dataset.tab; S.scan = null; S.keyScan = false; render(); window.scrollTo(0, 0); });
+  const body = $('#tabBody');
+  ({ sheet: renderSheet, key: renderKey, scan: renderScan, res: renderRes })[S.tab](body, e);
+}
+
+const draft = { n: 20, mark: 1, neg: 0 };
+function homeHTML() {
+  const list = S.exams.slice().sort((a, b) => b.createdAt - a.createdAt);
+  return `
+  <div class="card">
+    <h2>➕ નવી પરીક્ષા</h2>
+    <label class="f">પરીક્ષાનું નામ</label><input type="text" id="nName" placeholder="દા.ત. એકમ કસોટી – 2">
+    <div class="row">
+      <div><label class="f">વિષય</label><input type="text" id="nSub" placeholder="ગણિત"></div>
+      <div><label class="f">પ્રશ્નો (10–100)</label><input type="number" id="nN" min="1" max="100" value="20" inputmode="numeric"></div>
+    </div>
+    <div class="row">
+      <div><label class="f">વિકલ્પ</label><select id="nLab"><option value="abcd">A B C D</option><option value="guj">અ બ ક ડ</option></select></div>
+      <div><label class="f">શીટનો રંગ</label><select id="nCol"><option value="red">લાલ</option><option value="bw">કાળો</option></select></div>
+    </div>
+    <label class="f">રોલ નંબરના અંક</label><select id="nRd"><option value="4">4 અંક (દા.ત. 0047)</option><option value="8">8 અંક (દા.ત. GR / UDISE નંબર)</option></select>
+    <div id="nMarks">${markPickerHTML(draft)}</div>
+    <div style="margin-top:14px"><button class="btn block" id="nGo">પરીક્ષા બનાવો</button></div>
+  </div>
+  <div class="card"><h2>📚 મારી પરીક્ષાઓ</h2>
+  ${list.length ? list.map((e) => `<div class="exam" data-id="${e.id}"><div><b>${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}</b><small>${e.n} પ્રશ્નો · ${e.results.length} વિદ્યાર્થી ચકાસ્યા · ${e.key.filter((k) => k >= 0).length === e.n ? 'ચાવી ✓' : 'ચાવી બાકી'}</small></div><span class="go">›</span></div>`).join('') : '<p class="muted">હજી કોઈ પરીક્ષા નથી. ઉપરથી બનાવો.</p>'}
+  </div>
+  <div class="card muted">
+  <b style="color:var(--ink)">કેવી રીતે વાપરવું</b><br>
+  1. પરીક્ષા બનાવો → <b>શીટ</b> માં PDF ડાઉનલોડ કરી પ્રિન્ટ/ઝેરોક્ષ કરો.<br>
+  2. <b>ચાવી</b> માં સાચા જવાબ ભરો (અથવા ભરેલી શીટ સ્કેન કરો).<br>
+  3. <b>સ્કેન</b> માં દરેક વિદ્યાર્થીની શીટનો ફોટો લો — ગુણ તરત મળશે.<br>
+  4. <b>પરિણામ</b> માંથી Excel ડાઉનલોડ કરો.
+  </div>`;
+}
+function bindHome() {
+  bindMarkPicker($('#nMarks'), draft, () => {});
+  $('#nN').oninput = () => { draft.n = parseInt($('#nN').value) || 0; $('#nMarks .msum').innerHTML = markSummary(draft); };
+  $('#nGo').onclick = () => {
+    const n = parseInt($('#nN').value);
+    if (!(n >= 1 && n <= 100)) { toast('પ્રશ્નો 1 થી 100 વચ્ચે રાખો'); return; }
+    const e = newExam({ name: $('#nName').value.trim(), subject: $('#nSub').value.trim(), n, labels: $('#nLab').value, color: $('#nCol').value, rollDigits: +$('#nRd').value });
+    e.mark = draft.mark; e.neg = draft.neg;
+    S.exams.push(e); Store.save(e);
+    S.examId = e.id; S.view = 'exam'; S.tab = 'sheet'; render();
+  };
+  document.querySelectorAll('.exam').forEach((d) => d.onclick = () => { S.examId = d.dataset.id; S.view = 'exam'; S.tab = 'sheet'; S.scan = null; render(); });
+}
+
+/* ---- sheet tab ---- */
+function renderSheet(body, e) {
+  body.innerHTML = `
+  <div class="card">
+    <div class="row">
+      <div><label class="f">પરીક્ષાનું નામ</label><input type="text" id="sName" value="${esc(e.name)}"></div>
+      <div><label class="f">વિષય</label><input type="text" id="sSub" value="${esc(e.subject)}"></div>
+    </div>
+    <div class="row">
+      <div><label class="f">વિકલ્પ</label><select id="sLab"><option value="abcd">A B C D</option><option value="guj">અ બ ક ડ</option></select></div>
+      <div><label class="f">રંગ</label><select id="sCol"><option value="red">લાલ</option><option value="bw">કાળો</option></select></div>
+    </div>
+    <label class="f">રોલ નંબરના અંક</label><select id="sRd"><option value="4">4 અંક</option><option value="8">8 અંક</option></select>
+    <p class="muted" style="margin:10px 0 0">પ્રશ્નો: <b>${e.n}</b> (બદલવા માટે નવી પરીક્ષા બનાવો)</p>
+  </div>
+  <div class="card">
+    <canvas id="prev" class="preview"></canvas>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="pdfBtn">⬇ PDF</button>
+      <button class="btn sec" id="pngBtn">⬇ ફોટો (PNG)</button>
+    </div>
+    <p class="muted" style="margin:10px 0 0">A4 પર “Actual size / 100%” થી પ્રિન્ટ કરો. ચારેય ખૂણાના કાળા ચોરસ કપાવા ન જોઈએ. લાલ શીટને ઝેરોક્ષ કરવી હોય તો “કાળો” રંગ પસંદ કરો.</p>
+  </div>`;
+  $('#sLab').value = e.labels; $('#sCol').value = e.color; $('#sRd').value = String(e.rollDigits || 4);
+  const draw = async () => {
+    await fontsReady();
+    const c = $('#prev'); if (!c) return;
+    const s = Math.min(4, (c.clientWidth * (window.devicePixelRatio || 1)) / 210);
+    c.width = Math.round(210 * s); c.height = Math.round(297 * s);
+    OMR.drawSheet(c.getContext('2d'), s, e);
+  };
+  draw();
+  const upd = () => { e.name = $('#sName').value.trim() || 'પરીક્ષા'; e.subject = $('#sSub').value.trim(); e.labels = $('#sLab').value; e.color = $('#sCol').value; e.rollDigits = +$('#sRd').value; saveSoon(e); $('#title').textContent = e.name + (e.subject ? ' – ' + e.subject : ''); draw(); };
+  ['sName', 'sSub'].forEach((id) => $('#' + id).oninput = upd);
+  ['sLab', 'sCol', 'sRd'].forEach((id) => $('#' + id).onchange = upd);
+  $('#pngBtn').onclick = async () => {
+    await fontsReady();
+    const c = sheetCanvas(e, 10);
+    c.toBlob((b) => download(fname(e, 'png', '_OMR'), b), 'image/png');
+  };
+  $('#pdfBtn').onclick = async (ev) => {
+    const b = ev.currentTarget; b.disabled = true; b.innerHTML = '<span class="spin"></span>';
+    try {
+      await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf);
+      await fontsReady();
+      const c = sheetCanvas(e, 11.8);
+      const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
+      doc.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, 210, 297, undefined, 'FAST');
+      await download(fname(e, 'pdf', '_OMR'), doc.output('blob'));
+    } catch (err) { toast('PDF ન બન્યું — ઇન્ટરનેટ ચેક કરો'); }
+    b.disabled = false; b.textContent = '⬇ PDF';
+  };
+}
+
+/* ---- key tab ---- */
+function renderKey(body, e) {
+  const lab = L4(e);
+  const done = e.key.filter((k) => k >= 0).length;
+  body.innerHTML = `
+  <div class="card">
+    <h2>🔑 જવાબ ચાવી <span class="pill">${done}/${e.n}</span></h2>
+    <label class="f">ઝડપથી લખો (દા.ત. ${lab.join('')}${lab[1]}${lab[0]}… અથવા 1234…)</label>
+    <div class="row"><input type="text" id="kTxt" placeholder="${lab.join('')}..." autocapitalize="characters"><button class="btn ghost" id="kApply" style="flex:0 0 auto">ભરો</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn sec" id="kScan">📷 ભરેલી શીટ સ્કેન કરીને ચાવી</button></div>
+  </div>
+  <div class="card"><div class="keygrid">${e.key.map((k, i) => `<div class="krow"><span>${i + 1}</span>${lab.map((l, j) => `<button data-q="${i}" data-o="${j}" class="${k === j ? 'on' : ''}">${l}</button>`).join('')}</div>`).join('')}</div></div>
+  <div class="card">
+    <h2>ગુણ પદ્ધતિ</h2>
+    ${markPickerHTML(e)}
+    <p class="muted" style="margin:8px 0 0">એક પ્રશ્નમાં બે વર્તુળ ભર્યા હોય તો ખોટો ગણાશે.</p>
+  </div>`;
+  body.querySelectorAll('.krow button').forEach((b) => b.onclick = () => {
+    const q = +b.dataset.q, o = +b.dataset.o;
+    e.key[q] = e.key[q] === o ? -1 : o; saveSoon(e); regradeAll(e);
+    b.parentNode.querySelectorAll('button').forEach((x) => x.classList.toggle('on', +x.dataset.o === e.key[q]));
+    body.querySelector('.pill').textContent = e.key.filter((k) => k >= 0).length + '/' + e.n;
+  });
+  $('#kApply').onclick = () => {
+    const map = { A: 0, B: 1, C: 2, D: 3, 'અ': 0, 'બ': 1, 'ક': 2, 'ડ': 3, '1': 0, '2': 1, '3': 2, '4': 3 };
+    const chars = [...$('#kTxt').value.toUpperCase()].filter((c) => c in map || c === '-' || c === '_');
+    if (!chars.length) { toast('જવાબ લખો'); return; }
+    chars.slice(0, e.n).forEach((c, i) => e.key[i] = c in map ? map[c] : -1);
+    Store.save(e); regradeAll(e); toast(Math.min(chars.length, e.n) + ' જવાબ ભર્યા'); render();
+  };
+  bindMarkPicker(body, e, () => { regradeAll(e); saveSoon(e); });
+  $('#kScan').onclick = () => { S.tab = 'scan'; S.keyScan = true; S.scan = null; render(); };
+}
+function regradeAll(e) { e.results.forEach((r) => Object.assign(r, grade(e, r.answers))); }
+
+
+/* ---- marks picker (shared) ---- */
+const MARKS = [1, 0.5, 0.7, 0.75, 0.8, 2];
+const NEGS = [0, 0.25, 0.33, 0.5, 1];
+const fmt = (v) => String(Math.round(v * 100) / 100);
+function markPickerHTML(e) {
+  const chip = (grp, v, on, txt) => `<button type="button" class="chip ${on ? 'on' : ''}" data-g="${grp}" data-v="${v}">${txt}</button>`;
+  const mCustom = !MARKS.includes(e.mark), nCustom = !NEGS.includes(e.neg);
+  return `
+  <label class="f">✅ એક સાચા જવાબના ગુણ</label>
+  <div class="chips">${MARKS.map((v) => chip('m', v, e.mark === v, '+' + fmt(v))).join('')}${chip('m', 'c', mCustom, 'બીજું')}</div>
+  <input type="number" class="mcust ${mCustom ? '' : 'hide'}" data-g="m" step="0.01" min="0" value="${e.mark}" inputmode="decimal" placeholder="દા.ત. 1.5" style="margin-top:6px">
+  <label class="f">❌ એક ખોટા જવાબ પર કપાત (માઇનસ)</label>
+  <div class="chips">${NEGS.map((v) => chip('n', v, e.neg === v, v === 0 ? 'માઇનસ નહીં' : '−' + fmt(v))).join('')}${chip('n', 'c', nCustom, 'બીજું')}</div>
+  <input type="number" class="mcust ${nCustom ? '' : 'hide'}" data-g="n" step="0.01" min="0" value="${e.neg}" inputmode="decimal" placeholder="દા.ત. 0.2" style="margin-top:6px">
+  <p class="muted msum" style="margin:10px 0 0">${markSummary(e)}</p>`;
+}
+function markSummary(e) {
+  const tot = Math.round(e.n * e.mark * 100) / 100;
+  return `સાચો: <b style="color:var(--ok)">+${fmt(e.mark)}</b> · ખોટો: <b style="color:var(--bad)">${e.neg ? '−' + fmt(e.neg) : '0'}</b> · છોડેલો: 0 · કુલ ગુણ: <b>${tot}</b>`;
+}
+function bindMarkPicker(root, e, onChange) {
+  const sync = () => {
+    root.querySelectorAll('.chip').forEach((c) => {
+      const g = c.dataset.g, val = g === 'm' ? e.mark : e.neg, list = g === 'm' ? MARKS : NEGS;
+      c.classList.toggle('on', c.dataset.v === 'c' ? (!list.includes(val) || c.dataset.forced === '1') : (+c.dataset.v === val && root.querySelector(`.chip[data-g="${g}"][data-v="c"]`).dataset.forced !== '1'));
+    });
+    root.querySelector('.msum').innerHTML = markSummary(e);
+  };
+  root.querySelectorAll('.chip').forEach((c) => c.onclick = () => {
+    const g = c.dataset.g, inp = root.querySelector(`.mcust[data-g="${g}"]`), cust = root.querySelector(`.chip[data-g="${g}"][data-v="c"]`);
+    if (c.dataset.v === 'c') { cust.dataset.forced = '1'; inp.classList.remove('hide'); inp.focus(); inp.select && inp.select(); }
+    else { cust.dataset.forced = ''; inp.classList.add('hide'); if (g === 'm') e.mark = +c.dataset.v; else e.neg = +c.dataset.v; inp.value = c.dataset.v; onChange(); }
+    sync();
+  });
+  root.querySelectorAll('.mcust').forEach((inp) => inp.oninput = () => {
+    const v = Math.abs(parseFloat(inp.value));
+    if (!(v >= 0)) return;
+    if (inp.dataset.g === 'm') e.mark = v; else e.neg = v;
+    onChange(); sync();
+  });
+}
+
+/* ---- scan tab ---- */
+function renderScan(body, e) {
+  const keyed = e.key.filter((k) => k >= 0).length;
+  if (!S.scan) {
+    body.innerHTML = `
+    ${S.keyScan ? '<div class="note">🔑 <b>ચાવી સ્કેન:</b> સાચા જવાબ ભરેલી શીટનો ફોટો લો. તેના જવાબ ચાવી તરીકે સેવ થશે.</div>' : (keyed === 0 ? '<div class="note">પહેલાં <b>ચાવી</b> ભરો, નહીં તો ગુણ ગણાશે નહીં. (સ્કેન કરેલા જવાબ સેવ રહેશે, ચાવી ભર્યા પછી ગુણ આપોઆપ ગણાશે.)</div>' : '')}
+    ${S.scanErr ? `<div class="err">${S.scanErr}</div>` : ''}
+    <div class="card" style="text-align:center">
+      <div style="font-size:44px">📷</div>
+      <p style="margin:6px 0 14px">${S.keyScan ? 'ચાવીવાળી શીટ' : 'વિદ્યાર્થીની શીટ'}નો ઉપરથી સીધો ફોટો લો</p>
+      <button class="btn block" id="camBtn">${S.busy ? '<span class="spin"></span> તપાસી રહ્યા છીએ…' : 'કેમેરા ખોલો'}</button>
+      <button class="btn ghost block" id="galBtn" style="margin-top:8px">ગેલેરીમાંથી ફોટો</button>
+      ${S.keyScan ? '<button class="btn ghost block" id="cancelKey" style="margin-top:8px">રદ કરો</button>' : ''}
+    </div>
+    <div class="card muted">
+      ✅ શીટ સપાટ ટેબલ પર મૂકો, સારો પ્રકાશ રાખો (પડછાયો નહીં)<br>
+      ✅ <b>ચારેય ખૂણાના કાળા ચોરસ</b> ફોટામાં આવવા જોઈએ<br>
+      ✅ ફોટો થોડો ત્રાંસો કે ઊંધો હોય તો પણ ચાલશે<br>
+      ✅ ફોટા પછી કોઈ જવાબ ખોટો વંચાયો હોય તો તે વર્તુળ પર ટેપ કરી સુધારી શકો
+    </div>`;
+    $('#camBtn').onclick = () => !S.busy && $('#camIn').click();
+    $('#galBtn').onclick = () => !S.busy && $('#galIn').click();
+    if ($('#cancelKey')) $('#cancelKey').onclick = () => { S.keyScan = false; S.tab = 'key'; render(); };
+    return;
+  }
+  const r = S.scan, g = grade(e, r.answers), lab = L4(e);
+  const multi = r.answers.filter((a) => a === -2).length;
+  body.innerHTML = `
+  <div class="card">
+    ${S.keyScan ? `<h2>🔑 સ્કેન કરેલી ચાવી</h2><p class="muted" style="margin:0">${r.answers.filter((a) => a >= 0).length}/${e.n} જવાબ મળ્યા${multi ? ` · ${multi} માં બે વર્તુળ` : ''}</p>` : `
+    <div class="row">
+      <div><label class="f">રોલ નંબર</label><input type="text" id="rRoll" value="${esc(r.roll)}" inputmode="numeric"></div>
+      <div><label class="f">નામ (વૈકલ્પિક)</label><input type="text" id="rName" value="${esc(r.name || '')}"></div>
+    </div>
+    ${r.roll.includes('?') || !r.roll ? '<p class="muted" style="color:var(--warn);margin:6px 0 0">રોલ નંબર બરાબર વંચાયો નથી — હાથે લખો.</p>' : ''}
+    <div class="stat"><div class="g"><b>${g.correct}</b>સાચા</div><div class="r"><b>${g.wrong}</b>ખોટા</div><div class="y"><b>${g.blank}</b>છોડેલા</div><div><b>${g.score}<small style="font-size:13px">/${g.total}</small></b>ગુણ</div></div>
+    ${multi ? `<p class="muted" style="color:var(--warn);margin:0 0 6px">${multi} પ્રશ્નમાં એકથી વધુ વર્તુળ ભરેલાં છે (ખોટા ગણ્યા).</p>` : ''}`}
+    <div class="row" style="margin-top:8px"><button class="btn" id="rSave">${S.keyScan ? 'ચાવી તરીકે સેવ કરો' : '✓ સેવ કરી આગળ'}</button><button class="btn ghost" id="rRetake" style="flex:0 0 auto">ફરી ફોટો</button></div>
+  </div>
+  <div class="card">
+    <div class="legend"><span><i style="background:var(--ok)"></i>સાચો</span><span><i style="background:var(--bad)"></i>ખોટો</span><span><i style="border:2px solid #1565c0;width:8px;height:8px"></i>સાચો જવાબ</span><span><i style="background:var(--warn)"></i>બે વર્તુળ</span></div>
+    <canvas id="resC" class="res"></canvas>
+    <p class="muted" style="margin:8px 0 0">ભૂલથી વંચાયું હોય તો તે વર્તુળ પર ટેપ કરો.</p>
+  </div>`;
+  drawResult(e);
+  $('#resC').onclick = (ev) => tapFix(ev, e);
+  $('#rRetake').onclick = () => { S.scan = null; render(); $('#camIn').click(); };
+  if ($('#rRoll')) { $('#rRoll').oninput = () => r.roll = $('#rRoll').value.trim(); $('#rName').oninput = () => r.name = $('#rName').value.trim(); }
+  $('#rSave').onclick = () => {
+    if (S.keyScan) {
+      e.key = r.answers.map((a) => (a >= 0 ? a : -1)); regradeAll(e); Store.save(e);
+      S.keyScan = false; S.scan = null; S.tab = 'key'; toast('ચાવી સેવ થઈ'); render(); return;
+    }
+    const roll = (r.roll || '').trim();
+    if (!roll || roll.includes('?')) { toast('રોલ નંબર લખો'); $('#rRoll').focus(); return; }
+    const rec = { roll, name: r.name || '', answers: r.answers.slice(), time: Date.now(), ...grade(e, r.answers) };
+    const i = e.results.findIndex((x) => x.roll === roll);
+    if (i >= 0) { if (!rec.name) rec.name = e.results[i].name; e.results[i] = rec; } else e.results.push(rec);
+    Store.save(e);
+    toast(`રોલ ${roll}: ${rec.score}/${rec.total} સેવ ${i >= 0 ? '(અપડેટ)' : ''}`);
+    S.scan = null; render();
+  };
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  const e = cur(); if (!e) return;
+  S.busy = true; S.scanErr = ''; render();
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+    const sc = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * sc); c.height = Math.round(img.naturalHeight * sc);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(img.src);
+    await new Promise((r) => setTimeout(r, 30));
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    const res = OMR.readSheet(OMR.toGray(d.data, c.width, c.height), e.n, e.rollDigits || 4);
+    if (!res.ok) {
+      S.scanErr = res.error === 'markers' ? '❌ શીટના <b>ચાર ખૂણાના કાળા ચોરસ</b> મળ્યા નહીં. આખી શીટ ફોટામાં આવે, ઘાટી પાછળની સપાટી પર મૂકો અને ફરી ફોટો લો.' : '❌ શીટની દિશા ઓળખાઈ નહીં. આ એપમાંથી બનાવેલી શીટ જ વાપરો અને ફરી ફોટો લો.';
+    } else {
+      S.scan = { ...res, img: c, name: '' };
+      if (res.quality < 0.35) toast('ફોટો ઝાંખો છે — જવાબ ધ્યાનથી ચકાસો');
+    }
+  } catch (err) { S.scanErr = '❌ ફોટો ખુલ્યો નહીં. ફરી પ્રયત્ન કરો.'; }
+  S.busy = false; render(); window.scrollTo(0, 0);
+}
+$('#camIn').onchange = (ev) => { handleFile(ev.target.files[0]); ev.target.value = ''; };
+$('#galIn').onchange = (ev) => { handleFile(ev.target.files[0]); ev.target.value = ''; };
+
+function drawResult(e) {
+  const r = S.scan, c = $('#resC'); if (!c) return;
+  const W = Math.min(1100, r.img.width), f = W / r.img.width;
+  c.width = W; c.height = Math.round(r.img.height * f);
+  const x = c.getContext('2d');
+  x.drawImage(r.img, 0, 0, c.width, c.height);
+  const P = (p) => { const q = OMR.apply(r.H, p.x, p.y); return { x: q.x * f, y: q.y * f }; };
+  const rad = (o) => { const a = P(o), b = P({ x: o.x + o.r, y: o.y }); return Math.hypot(a.x - b.x, a.y - b.y); };
+  const ring = (o, color, w, fill) => { const p = P(o), rr = rad(o) * 1.25; x.beginPath(); x.arc(p.x, p.y, rr, 0, 7); if (fill) { x.fillStyle = fill; x.fill(); } x.strokeStyle = color; x.lineWidth = w; x.stroke(); };
+  const lw = Math.max(2, W / 450);
+  r.layout.q.forEach((q, i) => {
+    const a = r.answers[i], k = S.keyScan ? -1 : e.key[i];
+    if (a === -2) { r.qScores[i].forEach((s, j) => { if (s >= r.thr) ring(q.opts[j], '#e08a00', lw, 'rgba(224,138,0,.25)'); }); }
+    else if (a >= 0) {
+      const ok = k < 0 ? null : a === k;
+      ring(q.opts[a], ok === null ? '#1565c0' : ok ? '#1b8a3a' : '#d32f2f', lw, ok === null ? 'rgba(21,101,192,.2)' : ok ? 'rgba(27,138,58,.3)' : 'rgba(211,47,47,.3)');
+    }
+    if (k >= 0 && a !== k) ring(q.opts[k], '#1565c0', lw);
+  });
+  r.layout.roll.forEach((col, d) => { const v = r.rollDigits[d]; if (v >= 0) ring(col[v], '#6a1b9a', lw, 'rgba(106,27,154,.25)'); });
+}
+
+function tapFix(ev, e) {
+  const r = S.scan, c = ev.currentTarget, b = c.getBoundingClientRect();
+  const px = (ev.clientX - b.left) * c.width / b.width, py = (ev.clientY - b.top) * c.height / b.height;
+  const f = c.width / r.img.width;
+  let best = null;
+  const test = (o, fn) => { const q = OMR.apply(r.H, o.x, o.y), b2 = OMR.apply(r.H, o.x + o.r, o.y); const d = Math.hypot(q.x * f - px, q.y * f - py), rr = Math.hypot((q.x - b2.x) * f, (q.y - b2.y) * f); if (d < rr * 1.6 && (!best || d < best.d)) best = { d, fn }; };
+  r.layout.q.forEach((q, i) => q.opts.forEach((o, j) => test(o, () => { r.answers[i] = r.answers[i] === j ? -1 : j; })));
+  r.layout.roll.forEach((col, d) => col.forEach((o, v) => test(o, () => {
+    r.rollDigits[d] = r.rollDigits[d] === v ? -1 : v;
+    const s = r.rollDigits.every((x) => x < 0) ? '' : r.rollDigits.map((x) => (x >= 0 ? x : '?')).join(''); r.roll = r.layout.rd === 4 ? s.replace(/^0+(?=\d)/, '') : s;
+  })));
+  if (best) { best.fn(); render(); }
+}
+
+/* ---- results tab ---- */
+function renderRes(body, e) {
+  const R = e.results.slice().sort((a, b) => (parseInt(a.roll) || 0) - (parseInt(b.roll) || 0) || String(a.roll).localeCompare(b.roll));
+  const lab = L4(e);
+  if (!R.length) { body.innerHTML = '<div class="card"><p class="muted">હજી કોઈ શીટ સ્કેન નથી કરી. <b>સ્કેન</b> ટેબમાં જાઓ.</p></div>'; return; }
+  const total = R[0].total, avg = R.reduce((s, r) => s + r.score, 0) / R.length;
+  const qStat = e.key.map((k, i) => (k < 0 ? null : R.filter((r) => r.answers[i] === k).length));
+  body.innerHTML = `
+  <div class="card">
+    <div class="stat"><div><b>${R.length}</b>વિદ્યાર્થી</div><div><b>${(Math.round(avg * 10) / 10)}</b>સરેરાશ</div><div class="g"><b>${Math.max(...R.map((r) => r.score))}</b>સૌથી વધુ</div><div class="r"><b>${Math.min(...R.map((r) => r.score))}</b>સૌથી ઓછા</div></div>
+    <p class="muted" style="margin:0 0 10px">${markSummary(e)}</p>
+    <button class="btn block" id="xlsBtn">⬇ Excel ડાઉનલોડ</button>
+  </div>
+  <div class="card" style="padding:6px 8px">
+    <table><thead><tr><th>રોલ</th><th>નામ</th><th>✓</th><th>✗</th><th>–</th><th>ગુણ /${total}</th></tr></thead>
+    <tbody>${R.map((r) => `<tr class="cl" data-roll="${esc(r.roll)}"><td><b>${esc(r.roll)}</b></td><td>${esc(r.name) || '<span class="muted">—</span>'}</td><td style="color:var(--ok)">${r.correct}</td><td style="color:var(--bad)">${r.wrong}</td><td>${r.blank}</td><td><b>${r.score}</b></td></tr>`).join('')}</tbody></table>
+  </div>
+  <div class="card"><h2>પ્રશ્નવાર વિશ્લેષણ</h2><p class="muted" style="margin-top:-4px">કેટલા વિદ્યાર્થીએ સાચો જવાબ આપ્યો</p>
+  <table><tbody>${qStat.map((c, i) => c === null ? '' : `<tr><td style="width:40px">${i + 1}</td><td style="width:30px">${lab[e.key[i]]}</td><td><div class="bar"><i style="width:${Math.round(c / R.length * 100)}%;background:${c / R.length < 0.4 ? 'var(--bad)' : 'var(--ok)'}"></i></div></td><td style="width:70px;text-align:right">${c}/${R.length}</td></tr>`).join('')}</tbody></table></div>
+  <div class="card"><button class="btn ghost block" id="delExam" style="color:var(--bad)">🗑 આ પરીક્ષા કાઢી નાખો</button></div>`;
+  body.querySelectorAll('tr.cl').forEach((tr) => tr.onclick = () => showStudent(e, tr.dataset.roll));
+  $('#xlsBtn').onclick = () => exportXlsx(e, R);
+  $('#delExam').onclick = () => confirmBox(`“${esc(e.name)}” અને તેનાં બધાં પરિણામ કાઢી નાખવા છે?`, 'કાઢી નાખો', () => {
+    S.exams = S.exams.filter((x) => x.id !== e.id); Store.remove(e.id); S.view = 'home'; render();
+  });
+}
+function showStudent(e, roll) {
+  const r = e.results.find((x) => x.roll === roll); if (!r) return;
+  const lab = L4(e);
+  const cells = r.answers.map((a, i) => { const k = e.key[i]; const t = a >= 0 ? lab[a] : a === -2 ? '**' : '–'; const col = k < 0 ? '#555' : a === k ? 'var(--ok)' : a === -1 ? 'var(--mut)' : 'var(--bad)'; return `<span style="display:inline-block;width:52px;font-size:13px">${i + 1}.<b style="color:${col}">${t}</b></span>`; }).join('');
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="card"><h2>રોલ ${esc(r.roll)} ${esc(r.name)}</h2><div class="stat"><div class="g"><b>${r.correct}</b>સાચા</div><div class="r"><b>${r.wrong}</b>ખોટા</div><div><b>${r.score}/${r.total}</b>ગુણ</div></div>
+  <label class="f">નામ</label><input type="text" id="mName" value="${esc(r.name)}">
+  <div style="margin:10px 0;max-height:200px;overflow:auto">${cells}</div>
+  <div class="row"><button class="btn" id="mOk">બરાબર</button><button class="btn ghost" id="mDel" style="color:var(--bad);flex:0 0 auto">કાઢો</button></div></div>`;
+  document.body.appendChild(m);
+  m.onclick = (ev) => { if (ev.target === m) m.remove(); };
+  $('#mOk', m).onclick = () => { const n = $('#mName', m).value.trim(); if (n !== r.name) { r.name = n; Store.save(e); } m.remove(); render(); };
+  $('#mDel', m).onclick = () => { e.results = e.results.filter((x) => x !== r); Store.save(e); m.remove(); render(); };
+}
+function confirmBox(msg, okText, fn) {
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="card"><p>${msg}</p><div class="row"><button class="btn" id="cOk">${okText}</button><button class="btn ghost" id="cNo">રદ કરો</button></div></div>`;
+  document.body.appendChild(m);
+  $('#cOk', m).onclick = () => { m.remove(); fn(); };
+  $('#cNo', m).onclick = () => m.remove();
+}
+async function exportXlsx(e, R) {
+  const b = $('#xlsBtn'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
+  try {
+    await loadLib('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX);
+    const lab = L4(e);
+    const head = ['રોલ નંબર', 'નામ', 'સાચા', 'ખોટા', 'છોડેલા', 'ગુણ', 'કુલ ગુણ', 'ટકા'];
+    for (let i = 1; i <= e.n; i++) head.push('પ્ર ' + i);
+    const rows = [head];
+    R.forEach((r) => rows.push([isNaN(+r.roll) ? r.roll : +r.roll, r.name, r.correct, r.wrong, r.blank, r.score, r.total, r.total ? Math.round(r.score / r.total * 1000) / 10 : 0,
+      ...r.answers.map((a) => (a >= 0 ? lab[a] : a === -2 ? '**' : ''))]));
+    rows.push([]); rows.push(['ગુણ પદ્ધતિ', `સાચો +${fmt(e.mark)}, ખોટો ${e.neg ? '−' + fmt(e.neg) : '0'}`]); rows.push(['જવાબ ચાવી', '', '', '', '', '', '', '', ...e.key.map((k) => (k >= 0 ? lab[k] : ''))]);
+    const ws1 = XLSX.utils.aoa_to_sheet(rows);
+    ws1['!cols'] = [{ wch: 10 }, { wch: 22 }, { wch: 7 }, { wch: 7 }, { wch: 8 }, { wch: 7 }, { wch: 8 }, { wch: 7 }];
+    const q = [['પ્રશ્ન', 'સાચો જવાબ', 'સાચા આપનાર', 'ખોટા', 'છોડેલા', 'સાચા %']];
+    e.key.forEach((k, i) => { if (k < 0) return; const c = R.filter((r) => r.answers[i] === k).length, bl = R.filter((r) => r.answers[i] === -1).length; q.push([i + 1, lab[k], c, R.length - c - bl, bl, Math.round(c / R.length * 1000) / 10]); });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, 'પરિણામ');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(q), 'પ્રશ્નવાર');
+    const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    await download(fname(e, 'xlsx', '_પરિણામ'), new Blob([out]));
+  } catch (err) { toast('Excel ન બન્યું — ઇન્ટરનેટ ચેક કરો'); }
+  b.disabled = false; b.textContent = '⬇ Excel ડાઉનલોડ';
+}
+
+$('#backBtn').onclick = () => { S.view = 'home'; S.scan = null; S.keyScan = false; render(); };
+render();
+
+/* connect durable storage */
+(async () => {
+  const ok = await Store.connect();
+  if (!ok) return;
+  try {
+    const remote = await Store.loadRemote();
+    const byId = new Map(remote.map((x) => [x.id, x]));
+    for (const l of S.exams) { const r = byId.get(l.id); if (!r || (l.updatedAt || 0) > (r.updatedAt || 0)) { byId.set(l.id, l); Store.save(l); } }
+    S.exams = [...byId.values()];
+    Store.saveLocal(S.exams);
+    $('#sync').textContent = '☁ સેવ';
+    if (S.view === 'home') render();
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
