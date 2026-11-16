@@ -29,8 +29,13 @@ input[type=text],input[type=number],select{width:100%;padding:10px;border:1px so
 .tabs button.on{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
 .exam{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#fff;cursor:pointer}
 .exam b{display:block}.exam small{color:var(--mut)}
-.exam .go{color:var(--red);font-size:20px}
-.exam .del{margin-left:auto;border:0;background:#fdecec;border-radius:8px;padding:8px 10px;font-size:16px;flex:0 0 auto}
+.exam .go{margin-left:auto;color:var(--red);font-size:20px}
+.exam.manage{cursor:default;border-color:#f4bcbc}
+.exam .del{margin-left:auto;border:1.5px solid var(--bad);background:#fff;color:var(--bad);border-radius:8px;padding:8px 12px;font:inherit;font-size:14px;font-weight:700;flex:0 0 auto}
+.lhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.lhead h2{margin:0}
+.mng{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:13px}
+.mng.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.modal .btn.danger{background:var(--bad)}
 .muted{color:var(--mut);font-size:13px}
 .preview{width:100%;border:1px solid var(--line);border-radius:6px;display:block;background:#fff}
 .keygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
@@ -93,13 +98,16 @@ tr.cl{cursor:pointer}
     bw: { ink: '#000000', shade: '#e6e6e6', band: '#cfcfcf', letter: '#777777' },
   };
 
-  function optLabels(style) {
-    return style === 'guj' ? ['અ', 'બ', 'ક', 'ડ'] : ['A', 'B', 'C', 'D'];
+  const nOpts = (no) => (no === 5 ? 5 : 4);
+  function optLabels(no) {
+    return ['A', 'B', 'C', 'D', 'E'].slice(0, nOpts(no));
   }
   function rowY(r) { return GRID.y0 + r * GRID.dy + Math.floor(r / 5) * GRID.gGap; }
 
-  function layout(n, rd) {
+  function layout(n, rd, no) {
     rd = rd === 8 ? 8 : 4;
+    no = nOpts(no);
+    const ox = no === 5 ? 12.5 : GRID.optX, odx = no === 5 ? 5.5 : GRID.optDx;
     n = Math.max(1, Math.min(100, n | 0));
     const cols = GRID.cols, rows = Math.ceil(n / cols);
     const q = [];
@@ -107,7 +115,7 @@ tr.cl{cursor:pointer}
       const c = Math.floor(i / rows), r = i % rows;
       const bx = GRID.x0 + c * GRID.colW, y = rowY(r);
       const opts = [];
-      for (let k = 0; k < 4; k++) opts.push({ x: bx + GRID.optX + k * GRID.optDx, y, r: BR });
+      for (let k = 0; k < no; k++) opts.push({ x: bx + ox + k * odx, y, r: BR });
       q.push({ num: i + 1, x: bx, y, r, c, opts });
     }
     const roll = [];
@@ -116,7 +124,7 @@ tr.cl{cursor:pointer}
       for (let k = 0; k < 10; k++) col.push({ x: rollX(rd, d), y: ROLL.y0 + k * ROLL.dy, r: RBR });
       roll.push(col);
     }
-    return { n, rd, cols, rows, q, roll };
+    return { n, rd, no, cols, rows, q, roll };
   }
 
   function sheetNo(exam) {
@@ -127,9 +135,9 @@ tr.cl{cursor:pointer}
 
   /* ---------- drawing ---------- */
   function drawSheet(ctx, s, exam) {
-    const L = layout(exam.n, exam.rollDigits);
+    const L = layout(exam.n, exam.rollDigits, exam.opts);
     const T = THEMES[exam.color === 'bw' ? 'bw' : 'red'];
-    const labels = optLabels(exam.labels);
+    const labels = optLabels(L.no);
     const mm = (v) => v * s;
     ctx.save();
     ctx.fillStyle = '#fff';
@@ -438,7 +446,7 @@ tr.cl{cursor:pointer}
    * Read a sheet from a grayscale image {g,w,h}.
    * Returns {ok, answers[], rollDigits[], roll, H, quality, ...} or {ok:false, error}
    */
-  function readSheet(Gimg, n, rd) {
+  function readSheet(Gimg, n, rd, no) {
     const { img: small, f } = downscale(Gimg, 900);
     const ptsS = findMarkers(small);
     if (!ptsS) return { ok: false, error: 'markers' };
@@ -454,9 +462,9 @@ tr.cl{cursor:pointer}
       if (!best || sc > best.sc) best = { H, sc, k };
     }
     scs.sort((a, b) => b - a);
-    if (!best || scs[0] - scs[1] < 25) return { ok: false, error: 'orientation' };
+    if (!best || scs.length < 2 || scs[0] - scs[1] < 25) return { ok: false, error: 'orientation' };
     const H = best.H;
-    const L = layout(n, rd);
+    const L = layout(n, rd, no);
     const K = MK.reduce((s, m) => s + circleScore(Gimg, H, m.x, m.y, 2.3, 5.5), 0) / 4;
     const qScores = L.q.map((q) => q.opts.map((o) => circleScore(Gimg, H, o.x, o.y, o.r * 0.62, o.r + 0.6)));
     const rScores = L.roll.map((row) => row.map((o) => circleScore(Gimg, H, o.x, o.y, o.r * 0.62, o.r + 0.6)));
@@ -513,23 +521,30 @@ const Store = {
         else if (['invalid_argument', 'not_granted', 'revoked', 'capability_disabled', 'capability_removed'].includes(c)) { this.db = null; $('#sync').textContent = ''; }
       });
   },
+  gone() { try { return JSON.parse(localStorage.getItem(LKEY + '_deleted') || '[]'); } catch (e) { return []; } },
   remove(id) {
+    clearTimeout(saveTimers[id]); delete saveTimers[id];
     this.saveLocal(S.exams);
+    try { localStorage.setItem(LKEY + '_deleted', JSON.stringify([...new Set([...this.gone(), id])].slice(-200))); } catch (e) {}
     if (this.db) this.col().doc(id).delete().catch(() => {});
   },
 };
 
 /* ---------------- state ---------------- */
-const S = { exams: Store.local(), view: 'home', examId: null, tab: 'sheet', scan: null, keyScan: false, busy: false };
+const S = { exams: Store.local(), view: 'home', examId: null, tab: 'sheet', scan: null, keyScan: false, busy: false, manage: false, scanErr: '' };
 const cur = () => S.exams.find((e) => e.id === S.examId);
-const L4 = (e) => OMR.optLabels(e.labels);
-let saveT;
-const saveSoon = (e) => { clearTimeout(saveT); saveT = setTimeout(() => Store.save(e), 700); };
+const NO = (e) => (e.opts === 5 ? 5 : 4);
+const L4 = (e) => OMR.optLabels(NO(e));
+const saveTimers = {};
+const saveSoon = (e) => { e.updatedAt = Date.now(); Store.saveLocal(S.exams); clearTimeout(saveTimers[e.id]); saveTimers[e.id] = setTimeout(() => { delete saveTimers[e.id]; Store.save(e); }, 700); };
+const flushSaves = () => { for (const id of Object.keys(saveTimers)) { clearTimeout(saveTimers[id]); delete saveTimers[id]; const e = S.exams.find((x) => x.id === id); if (e) Store.save(e); } };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSaves(); });
+window.addEventListener('pagehide', flushSaves);
 
 function newExam(o) {
   const n = Math.max(1, Math.min(100, parseInt(o.n) || 20));
   return { id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: o.name || 'પરીક્ષા', subject: o.subject || '', std: o.std || '',
-    n, rollDigits: o.rollDigits === 8 ? 8 : 4, labels: o.labels || 'abcd', color: o.color || 'red', key: Array(n).fill(-1), mark: 1, neg: 0, results: [], createdAt: Date.now(), updatedAt: Date.now() };
+    n, rollDigits: o.rollDigits === 8 ? 8 : 4, opts: o.opts === 5 ? 5 : 4, color: o.color || 'red', key: Array(n).fill(-1), mark: 1, neg: 0, results: [], createdAt: Date.now(), updatedAt: Date.now() };
 }
 
 function grade(exam, answers) {
@@ -565,7 +580,7 @@ function loadLib(url, test) {
   return libs[url] || (libs[url] = new Promise((res, rej) => { const s = document.createElement('script'); s.src = url; s.onload = res; s.onerror = () => { delete libs[url]; rej(new Error('lib')); }; document.head.appendChild(s); }));
 }
 async function fontsReady() {
-  try { await Promise.all([document.fonts.load('400 20px "Noto Sans Gujarati"', 'અ'), document.fonts.load('700 20px "Noto Sans Gujarati"', 'અ')]); } catch (e) {}
+  try { await Promise.all([document.fonts.load('400 20px "Noto Sans Gujarati"', 'ગુજરાતી'), document.fonts.load('700 20px "Noto Sans Gujarati"', 'ગુજરાતી')]); } catch (e) {}
 }
 function sheetCanvas(exam, s) {
   const c = document.createElement('canvas');
@@ -584,7 +599,7 @@ function render() {
   if (S.view === 'home' || !e) { S.view = 'home'; app.innerHTML = homeHTML(); bindHome(); return; }
   const tabs = [['sheet', '📄 શીટ'], ['key', '🔑 ચાવી'], ['scan', '📷 સ્કેન'], ['res', '📊 પરિણામ']];
   app.innerHTML = `<div class="tabs">${tabs.map(([k, t]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${t}</button>`).join('')}</div><div id="tabBody"></div>`;
-  app.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { S.tab = b.dataset.tab; S.scan = null; S.keyScan = false; render(); window.scrollTo(0, 0); });
+  app.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { S.tab = b.dataset.tab; S.scan = null; S.keyScan = false; S.scanErr = ''; render(); window.scrollTo(0, 0); });
   const body = $('#tabBody');
   ({ sheet: renderSheet, key: renderKey, scan: renderScan, res: renderRes })[S.tab](body, e);
 }
@@ -598,18 +613,19 @@ function homeHTML() {
     <label class="f">પરીક્ષાનું નામ</label><input type="text" id="nName" placeholder="દા.ત. એકમ કસોટી – 2">
     <div class="row">
       <div><label class="f">વિષય</label><input type="text" id="nSub" placeholder="ગણિત"></div>
-      <div><label class="f">પ્રશ્નો (10–100)</label><input type="number" id="nN" min="1" max="100" value="20" inputmode="numeric"></div>
+      <div><label class="f">પ્રશ્નો (1–100)</label><input type="number" id="nN" min="1" max="100" value="20" inputmode="numeric"></div>
     </div>
     <div class="row">
-      <div><label class="f">વિકલ્પ</label><select id="nLab"><option value="abcd">A B C D</option><option value="guj">અ બ ક ડ</option></select></div>
+      <div><label class="f">વિકલ્પ</label><select id="nLab"><option value="4">A B C D</option><option value="5">A B C D E</option></select></div>
       <div><label class="f">શીટનો રંગ</label><select id="nCol"><option value="red">લાલ</option><option value="bw">કાળો</option></select></div>
     </div>
     <label class="f">રોલ નંબરના અંક</label><select id="nRd"><option value="4">4 અંક (દા.ત. 0047)</option><option value="8">8 અંક (દા.ત. GR / UDISE નંબર)</option></select>
     <div id="nMarks">${markPickerHTML(draft)}</div>
     <div style="margin-top:14px"><button class="btn block" id="nGo">પરીક્ષા બનાવો</button></div>
   </div>
-  <div class="card"><h2>📚 મારી પરીક્ષાઓ</h2>
-  ${list.length ? list.map((e) => `<div class="exam" data-id="${e.id}"><div><b>${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}</b><small>${e.n} પ્રશ્નો · ${e.results.length} વિદ્યાર્થી ચકાસ્યા · ${e.key.filter((k) => k >= 0).length === e.n ? 'ચાવી ✓' : 'ચાવી બાકી'}</small></div><button class="del" data-del="${e.id}" aria-label="કાઢી નાખો">🗑</button><span class="go">›</span></div>`).join('') : '<p class="muted">હજી કોઈ પરીક્ષા નથી. ઉપરથી બનાવો.</p>'}
+  <div class="card"><div class="lhead"><h2>📚 મારી પરીક્ષાઓ</h2>${list.length ? `<button class="mng ${S.manage ? 'on' : ''}" id="mngBtn">${S.manage ? '✓ થઈ ગયું' : '✏️ કાઢવા માટે'}</button>` : ''}</div>
+  ${S.manage && list.length ? '<p class="muted" style="margin:-4px 0 8px;color:var(--bad)">જે પરીક્ષા કાઢવી હોય તેની સામે “કાઢો” દબાવો.</p>' : ''}
+  ${list.length ? list.map((e) => `<div class="exam ${S.manage ? 'manage' : ''}" data-id="${e.id}"><div style="min-width:0"><b>${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}</b><small>${e.n} પ્રશ્નો · ${L4(e).length} વિકલ્પ · ${e.results.length} વિદ્યાર્થી ચકાસ્યા · ${e.key.filter((k) => k >= 0).length === e.n ? 'ચાવી ✓' : 'ચાવી બાકી'}</small></div>${S.manage ? `<button class="del" data-del="${e.id}">🗑 કાઢો</button>` : '<span class="go">›</span>'}</div>`).join('') : '<p class="muted">હજી કોઈ પરીક્ષા નથી. ઉપરથી બનાવો.</p>'}
   </div>
   <div class="card muted">
   <b style="color:var(--ink)">કેવી રીતે વાપરવું</b><br>
@@ -625,13 +641,14 @@ function bindHome() {
   $('#nGo').onclick = () => {
     const n = parseInt($('#nN').value);
     if (!(n >= 1 && n <= 100)) { toast('પ્રશ્નો 1 થી 100 વચ્ચે રાખો'); return; }
-    const e = newExam({ name: $('#nName').value.trim(), subject: $('#nSub').value.trim(), n, labels: $('#nLab').value, color: $('#nCol').value, rollDigits: +$('#nRd').value });
+    const e = newExam({ name: $('#nName').value.trim(), subject: $('#nSub').value.trim(), n, opts: +$('#nLab').value, color: $('#nCol').value, rollDigits: +$('#nRd').value });
     e.mark = draft.mark; e.neg = draft.neg;
     S.exams.push(e); Store.save(e);
     S.examId = e.id; S.view = 'exam'; S.tab = 'sheet'; render();
   };
+  if ($('#mngBtn')) $('#mngBtn').onclick = () => { S.manage = !S.manage; render(); };
   document.querySelectorAll('.exam .del').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); deleteExam(S.exams.find((x) => x.id === b.dataset.del)); });
-  document.querySelectorAll('.exam').forEach((d) => d.onclick = () => { S.examId = d.dataset.id; S.view = 'exam'; S.tab = 'sheet'; S.scan = null; render(); });
+  document.querySelectorAll('.exam').forEach((d) => d.onclick = () => { if (S.manage) return; S.examId = d.dataset.id; S.view = 'exam'; S.tab = 'sheet'; S.scan = null; S.scanErr = ''; render(); });
 }
 
 /* ---- sheet tab ---- */
@@ -643,11 +660,11 @@ function renderSheet(body, e) {
       <div><label class="f">વિષય</label><input type="text" id="sSub" value="${esc(e.subject)}"></div>
     </div>
     <div class="row">
-      <div><label class="f">વિકલ્પ</label><select id="sLab"><option value="abcd">A B C D</option><option value="guj">અ બ ક ડ</option></select></div>
       <div><label class="f">રંગ</label><select id="sCol"><option value="red">લાલ</option><option value="bw">કાળો</option></select></div>
     </div>
-    <label class="f">રોલ નંબરના અંક</label><select id="sRd"><option value="4">4 અંક</option><option value="8">8 અંક</option></select>
-    <p class="muted" style="margin:10px 0 0">પ્રશ્નો: <b>${e.n}</b> (બદલવા માટે નવી પરીક્ષા બનાવો)</p>
+    <label class="f">રોલ નંબરના અંક</label><select id="sRd" ${e.results.length ? 'disabled' : ''}><option value="4">4 અંક</option><option value="8">8 અંક</option></select>
+    ${e.results.length ? '<p class="muted" style="margin:4px 0 0">શીટ સ્કેન થઈ ગઈ હોવાથી રોલ અંક બદલી શકાશે નહીં.</p>' : ''}
+    <p class="muted" style="margin:10px 0 0">પ્રશ્નો: <b>${e.n}</b> · વિકલ્પ: <b>${L4(e).join(' ')}</b> (બદલવા માટે નવી પરીક્ષા બનાવો)</p>
   </div>
   <div class="card">
     <canvas id="prev" class="preview"></canvas>
@@ -657,18 +674,18 @@ function renderSheet(body, e) {
     </div>
     <p class="muted" style="margin:10px 0 0">A4 પર “Actual size / 100%” થી પ્રિન્ટ કરો. ચારેય ખૂણાના કાળા ચોરસ કપાવા ન જોઈએ. લાલ શીટને ઝેરોક્ષ કરવી હોય તો “કાળો” રંગ પસંદ કરો.</p>
   </div>`;
-  $('#sLab').value = e.labels; $('#sCol').value = e.color; $('#sRd').value = String(e.rollDigits || 4);
+  $('#sCol').value = e.color; $('#sRd').value = String(e.rollDigits || 4);
   const draw = async () => {
     await fontsReady();
     const c = $('#prev'); if (!c) return;
-    const s = Math.min(4, (c.clientWidth * (window.devicePixelRatio || 1)) / 210);
+    const s = Math.max(1.5, Math.min(4, ((c.clientWidth || 340) * (window.devicePixelRatio || 1)) / 210));
     c.width = Math.round(210 * s); c.height = Math.round(297 * s);
     OMR.drawSheet(c.getContext('2d'), s, e);
   };
   draw();
-  const upd = () => { e.name = $('#sName').value.trim() || 'પરીક્ષા'; e.subject = $('#sSub').value.trim(); e.labels = $('#sLab').value; e.color = $('#sCol').value; e.rollDigits = +$('#sRd').value; saveSoon(e); $('#title').textContent = e.name + (e.subject ? ' – ' + e.subject : ''); draw(); };
+  const upd = () => { e.name = $('#sName').value.trim() || 'પરીક્ષા'; e.subject = $('#sSub').value.trim(); e.color = $('#sCol').value; e.rollDigits = +$('#sRd').value; saveSoon(e); $('#title').textContent = e.name + (e.subject ? ' – ' + e.subject : ''); draw(); };
   ['sName', 'sSub'].forEach((id) => $('#' + id).oninput = upd);
-  ['sLab', 'sCol', 'sRd'].forEach((id) => $('#' + id).onchange = upd);
+  ['sCol', 'sRd'].forEach((id) => $('#' + id).onchange = upd);
   $('#pngBtn').onclick = async () => {
     await fontsReady();
     const c = sheetCanvas(e, 10);
@@ -712,10 +729,13 @@ function renderKey(body, e) {
     body.querySelector('.pill').textContent = e.key.filter((k) => k >= 0).length + '/' + e.n;
   });
   $('#kApply').onclick = () => {
-    const map = { A: 0, B: 1, C: 2, D: 3, 'અ': 0, 'બ': 1, 'ક': 2, 'ડ': 3, '1': 0, '2': 1, '3': 2, '4': 3 };
-    const chars = [...$('#kTxt').value.toUpperCase()].filter((c) => c in map || c === '-' || c === '_');
+    const no = NO(e), map = new Map();
+    'ABCDE'.slice(0, no).split('').forEach((c, i) => { map.set(c, i); map.set(String(i + 1), i); });
+    const bad = [...$('#kTxt').value.toUpperCase()].filter((c) => /[A-Z0-9]/.test(c) && !map.has(c));
+    if (bad.length) { toast(`ખોટો અક્ષર: ${[...new Set(bad)].join(' ')} — ફક્ત ${L4(e).join(' ')} વાપરો`); return; }
+    const chars = [...$('#kTxt').value.toUpperCase()].filter((c) => map.has(c) || c === '-' || c === '_');
     if (!chars.length) { toast('જવાબ લખો'); return; }
-    chars.slice(0, e.n).forEach((c, i) => e.key[i] = c in map ? map[c] : -1);
+    chars.slice(0, e.n).forEach((c, i) => e.key[i] = map.has(c) ? map.get(c) : -1);
     Store.save(e); regradeAll(e); toast(Math.min(chars.length, e.n) + ' જવાબ ભર્યા'); render();
   };
   bindMarkPicker(body, e, () => { regradeAll(e); saveSoon(e); });
@@ -835,15 +855,16 @@ async function handleFile(file) {
   const e = cur(); if (!e) return;
   S.busy = true; S.scanErr = ''; render();
   try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; }).finally(() => setTimeout(() => URL.revokeObjectURL(url), 0));
+    if (!img.naturalWidth) throw new Error('img');
     const sc = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * sc); c.height = Math.round(img.naturalHeight * sc);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    URL.revokeObjectURL(img.src);
     await new Promise((r) => setTimeout(r, 30));
     const d = c.getContext('2d').getImageData(0, 0, c.width, c.height);
-    const res = OMR.readSheet(OMR.toGray(d.data, c.width, c.height), e.n, e.rollDigits || 4);
+    const res = OMR.readSheet(OMR.toGray(d.data, c.width, c.height), e.n, e.rollDigits || 4, NO(e));
     if (!res.ok) {
       S.scanErr = res.error === 'markers' ? '❌ શીટના <b>ચાર ખૂણાના કાળા ચોરસ</b> મળ્યા નહીં. આખી શીટ ફોટામાં આવે, ઘાટી પાછળની સપાટી પર મૂકો અને ફરી ફોટો લો.' : '❌ શીટની દિશા ઓળખાઈ નહીં. આ એપમાંથી બનાવેલી શીટ જ વાપરો અને ફરી ફોટો લો.';
     } else {
@@ -924,23 +945,25 @@ function showStudent(e, roll) {
   m.innerHTML = `<div class="card"><h2>રોલ ${esc(r.roll)} ${esc(r.name)}</h2><div class="stat"><div class="g"><b>${r.correct}</b>સાચા</div><div class="r"><b>${r.wrong}</b>ખોટા</div><div><b>${r.score}/${r.total}</b>ગુણ</div></div>
   <label class="f">નામ</label><input type="text" id="mName" value="${esc(r.name)}">
   <div style="margin:10px 0;max-height:200px;overflow:auto">${cells}</div>
-  <div class="row"><button class="btn" id="mOk">બરાબર</button><button class="btn ghost" id="mDel" style="color:var(--bad);flex:0 0 auto">કાઢો</button></div></div>`;
+  <button class="btn block" id="mOk">બરાબર</button>
+  <button class="btn ghost block" id="mDel" style="color:var(--bad);margin-top:18px;font-size:13px">🗑 આ વિદ્યાર્થીનું પરિણામ કાઢો</button></div>`;
   document.body.appendChild(m);
   m.onclick = (ev) => { if (ev.target === m) m.remove(); };
   $('#mOk', m).onclick = () => { const n = $('#mName', m).value.trim(); if (n !== r.name) { r.name = n; Store.save(e); } m.remove(); render(); };
-  $('#mDel', m).onclick = () => { e.results = e.results.filter((x) => x !== r); Store.save(e); m.remove(); render(); };
+  $('#mDel', m).onclick = () => { m.remove(); confirmBox(`રોલ <b>${esc(r.roll)}</b> ${esc(r.name)} નું પરિણામ કાઢી નાખવું છે?`, '🗑 કાઢી નાખો', () => { e.results = e.results.filter((x) => x !== r); Store.save(e); toast('પરિણામ કાઢી નાખ્યું'); render(); }); };
 }
 function deleteExam(e) {
   if (!e) return;
   const n = e.results.length;
   confirmBox(`<b>“${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}”</b> પરીક્ષા કાઢી નાખવી છે?${n ? `<br><span style="color:var(--bad)">તેનાં ${n} વિદ્યાર્થીઓનાં પરિણામ પણ કાઢી નખાશે.</span>` : ''}<br><span class="muted">આ પાછું લાવી શકાશે નહીં.</span>`, '🗑 કાઢી નાખો', () => {
-    S.exams = S.exams.filter((x) => x.id !== e.id); Store.remove(e.id); S.view = 'home'; S.scan = null; toast('પરીક્ષા કાઢી નાખી'); render();
+    S.exams = S.exams.filter((x) => x.id !== e.id); Store.remove(e.id); S.view = 'home'; S.scan = null; if (!S.exams.length) S.manage = false; toast('પરીક્ષા કાઢી નાખી'); render();
   });
 }
 function confirmBox(msg, okText, fn) {
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="card"><p>${msg}</p><div class="row"><button class="btn" id="cOk">${okText}</button><button class="btn ghost" id="cNo">રદ કરો</button></div></div>`;
+  m.innerHTML = `<div class="card"><p>${msg}</p><div class="row"><button class="btn ghost" id="cNo">રદ કરો</button><button class="btn danger" id="cOk">${okText}</button></div></div>`;
   document.body.appendChild(m);
+  m.onclick = (ev) => { if (ev.target === m) m.remove(); };
   $('#cOk', m).onclick = () => { m.remove(); fn(); };
   $('#cNo', m).onclick = () => m.remove();
 }
@@ -952,7 +975,7 @@ async function exportXlsx(e, R) {
     const head = ['રોલ નંબર', 'નામ', 'સાચા', 'ખોટા', 'છોડેલા', 'ગુણ', 'કુલ ગુણ', 'ટકા'];
     for (let i = 1; i <= e.n; i++) head.push('પ્ર ' + i);
     const rows = [head];
-    R.forEach((r) => rows.push([isNaN(+r.roll) ? r.roll : +r.roll, r.name, r.correct, r.wrong, r.blank, r.score, r.total, r.total ? Math.round(r.score / r.total * 1000) / 10 : 0,
+    R.forEach((r) => rows.push([String(r.roll), r.name, r.correct, r.wrong, r.blank, r.score, r.total, r.total ? Math.round(r.score / r.total * 1000) / 10 : 0,
       ...r.answers.map((a) => (a >= 0 ? lab[a] : a === -2 ? '**' : ''))]));
     rows.push([]); rows.push(['ગુણ પદ્ધતિ', `સાચો +${fmt(e.mark)}, ખોટો ${e.neg ? '−' + fmt(e.neg) : '0'}`]); rows.push(['જવાબ ચાવી', '', '', '', '', '', '', '', ...e.key.map((k) => (k >= 0 ? lab[k] : ''))]);
     const ws1 = XLSX.utils.aoa_to_sheet(rows);
@@ -968,7 +991,7 @@ async function exportXlsx(e, R) {
   b.disabled = false; b.textContent = '⬇ Excel ડાઉનલોડ';
 }
 
-$('#backBtn').onclick = () => { S.view = 'home'; S.scan = null; S.keyScan = false; render(); };
+$('#backBtn').onclick = () => { S.view = 'home'; S.scan = null; S.keyScan = false; S.scanErr = ''; S.manage = false; render(); };
 render();
 
 /* connect durable storage */
@@ -976,13 +999,20 @@ render();
   const ok = await Store.connect();
   if (!ok) return;
   try {
+    const gone = new Set(Store.gone());
     const remote = await Store.loadRemote();
-    const byId = new Map(remote.map((x) => [x.id, x]));
-    for (const l of S.exams) { const r = byId.get(l.id); if (!r || (l.updatedAt || 0) > (r.updatedAt || 0)) { byId.set(l.id, l); Store.save(l); } }
-    S.exams = [...byId.values()];
+    let changed = false;
+    for (const r of remote) {
+      if (gone.has(r.id)) { Store.col().doc(r.id).delete().catch(() => {}); continue; }
+      const l = S.exams.find((x) => x.id === r.id);
+      if (!l) { S.exams.push(r); changed = true; }
+      else if ((r.updatedAt || 0) > (l.updatedAt || 0)) { Object.keys(l).forEach((k) => delete l[k]); Object.assign(l, r); changed = true; }
+    }
+    const remoteIds = new Set(remote.map((x) => x.id));
+    for (const l of S.exams) { const r = remote.find((x) => x.id === l.id); if (!remoteIds.has(l.id) || (l.updatedAt || 0) > (r.updatedAt || 0)) Store.save(l); }
     Store.saveLocal(S.exams);
     $('#sync').textContent = '☁ સેવ';
-    if (S.view === 'home') render();
+    if (changed && !S.scan && !S.busy && !document.querySelector('.modal') && !(document.activeElement && /INPUT|SELECT/.test(document.activeElement.tagName))) render();
   } catch (e) {}
 })();
 </script>
