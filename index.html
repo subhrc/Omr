@@ -29,7 +29,8 @@ input[type=text],input[type=number],select{width:100%;padding:10px;border:1px so
 .tabs button.on{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
 .exam{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#fff;cursor:pointer}
 .exam b{display:block}.exam small{color:var(--mut)}
-.exam .go{margin-left:auto;color:var(--red);font-size:20px}
+.exam .go{color:var(--red);font-size:20px}
+.exam .del{margin-left:auto;border:0;background:#fdecec;border-radius:8px;padding:8px 10px;font-size:16px;flex:0 0 auto}
 .muted{color:var(--mut);font-size:13px}
 .preview{width:100%;border:1px solid var(--line);border-radius:6px;display:block;background:#fff}
 .keygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
@@ -608,7 +609,7 @@ function homeHTML() {
     <div style="margin-top:14px"><button class="btn block" id="nGo">પરીક્ષા બનાવો</button></div>
   </div>
   <div class="card"><h2>📚 મારી પરીક્ષાઓ</h2>
-  ${list.length ? list.map((e) => `<div class="exam" data-id="${e.id}"><div><b>${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}</b><small>${e.n} પ્રશ્નો · ${e.results.length} વિદ્યાર્થી ચકાસ્યા · ${e.key.filter((k) => k >= 0).length === e.n ? 'ચાવી ✓' : 'ચાવી બાકી'}</small></div><span class="go">›</span></div>`).join('') : '<p class="muted">હજી કોઈ પરીક્ષા નથી. ઉપરથી બનાવો.</p>'}
+  ${list.length ? list.map((e) => `<div class="exam" data-id="${e.id}"><div><b>${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}</b><small>${e.n} પ્રશ્નો · ${e.results.length} વિદ્યાર્થી ચકાસ્યા · ${e.key.filter((k) => k >= 0).length === e.n ? 'ચાવી ✓' : 'ચાવી બાકી'}</small></div><button class="del" data-del="${e.id}" aria-label="કાઢી નાખો">🗑</button><span class="go">›</span></div>`).join('') : '<p class="muted">હજી કોઈ પરીક્ષા નથી. ઉપરથી બનાવો.</p>'}
   </div>
   <div class="card muted">
   <b style="color:var(--ink)">કેવી રીતે વાપરવું</b><br>
@@ -629,6 +630,7 @@ function bindHome() {
     S.exams.push(e); Store.save(e);
     S.examId = e.id; S.view = 'exam'; S.tab = 'sheet'; render();
   };
+  document.querySelectorAll('.exam .del').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); deleteExam(S.exams.find((x) => x.id === b.dataset.del)); });
   document.querySelectorAll('.exam').forEach((d) => d.onclick = () => { S.examId = d.dataset.id; S.view = 'exam'; S.tab = 'sheet'; S.scan = null; render(); });
 }
 
@@ -894,7 +896,7 @@ function tapFix(ev, e) {
 function renderRes(body, e) {
   const R = e.results.slice().sort((a, b) => (parseInt(a.roll) || 0) - (parseInt(b.roll) || 0) || String(a.roll).localeCompare(b.roll));
   const lab = L4(e);
-  if (!R.length) { body.innerHTML = '<div class="card"><p class="muted">હજી કોઈ શીટ સ્કેન નથી કરી. <b>સ્કેન</b> ટેબમાં જાઓ.</p></div>'; return; }
+  if (!R.length) { body.innerHTML = '<div class="card"><p class="muted">હજી કોઈ શીટ સ્કેન નથી કરી. <b>સ્કેન</b> ટેબમાં જાઓ.</p></div><div class="card"><button class="btn ghost block" id="delExam" style="color:var(--bad)">🗑 આ પરીક્ષા કાઢી નાખો</button></div>'; $('#delExam').onclick = () => deleteExam(e); return; }
   const total = R[0].total, avg = R.reduce((s, r) => s + r.score, 0) / R.length;
   const qStat = e.key.map((k, i) => (k < 0 ? null : R.filter((r) => r.answers[i] === k).length));
   body.innerHTML = `
@@ -912,9 +914,7 @@ function renderRes(body, e) {
   <div class="card"><button class="btn ghost block" id="delExam" style="color:var(--bad)">🗑 આ પરીક્ષા કાઢી નાખો</button></div>`;
   body.querySelectorAll('tr.cl').forEach((tr) => tr.onclick = () => showStudent(e, tr.dataset.roll));
   $('#xlsBtn').onclick = () => exportXlsx(e, R);
-  $('#delExam').onclick = () => confirmBox(`“${esc(e.name)}” અને તેનાં બધાં પરિણામ કાઢી નાખવા છે?`, 'કાઢી નાખો', () => {
-    S.exams = S.exams.filter((x) => x.id !== e.id); Store.remove(e.id); S.view = 'home'; render();
-  });
+  $('#delExam').onclick = () => deleteExam(e);
 }
 function showStudent(e, roll) {
   const r = e.results.find((x) => x.roll === roll); if (!r) return;
@@ -929,6 +929,13 @@ function showStudent(e, roll) {
   m.onclick = (ev) => { if (ev.target === m) m.remove(); };
   $('#mOk', m).onclick = () => { const n = $('#mName', m).value.trim(); if (n !== r.name) { r.name = n; Store.save(e); } m.remove(); render(); };
   $('#mDel', m).onclick = () => { e.results = e.results.filter((x) => x !== r); Store.save(e); m.remove(); render(); };
+}
+function deleteExam(e) {
+  if (!e) return;
+  const n = e.results.length;
+  confirmBox(`<b>“${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}”</b> પરીક્ષા કાઢી નાખવી છે?${n ? `<br><span style="color:var(--bad)">તેનાં ${n} વિદ્યાર્થીઓનાં પરિણામ પણ કાઢી નખાશે.</span>` : ''}<br><span class="muted">આ પાછું લાવી શકાશે નહીં.</span>`, '🗑 કાઢી નાખો', () => {
+    S.exams = S.exams.filter((x) => x.id !== e.id); Store.remove(e.id); S.view = 'home'; S.scan = null; toast('પરીક્ષા કાઢી નાખી'); render();
+  });
 }
 function confirmBox(msg, okText, fn) {
   const m = document.createElement('div'); m.className = 'modal';
