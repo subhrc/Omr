@@ -517,7 +517,7 @@ const Store = {
     this.q[exam.id] = (this.q[exam.id] || Promise.resolve()).then(() => this.col().doc(exam.id).set(body))
       .catch((e) => {
         const c = e && e.code;
-        if (c === 'quota_exceeded') toast('જગ્યા ભરાઈ ગઈ — જૂની પરીક્ષા કાઢો');
+        if (c === 'quota_exceeded') toast('જગ્યા ભરાઈ ગઈ છે — જૂની પરીક્ષા ડિલીટ કરો');
         else if (['invalid_argument', 'not_granted', 'revoked', 'capability_disabled', 'capability_removed'].includes(c)) { this.db = null; $('#sync').textContent = ''; }
       });
   },
@@ -565,7 +565,7 @@ async function download(filename, blob) {
     if (window.claude && claude.use) {
       if (dlNS === undefined) dlNS = await claude.use('downloads');
       if (dlNS) { await dlNS.save({ filename, data: blob }); toast('ડાઉનલોડ થયું'); return; }
-      toast('આ જગ્યાએ ડાઉનલોડ ચાલતું નથી — artifact claude.ai માં ખોલો'); return;
+      toast('અહીં ડાઉનલોડ નથી થતું — એપ claude.ai માં ખોલો'); return;
     }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
@@ -597,7 +597,7 @@ function render() {
   $('#backBtn').classList.toggle('hide', S.view === 'home');
   $('#title').textContent = S.view === 'home' ? 'OMR શીટ અને ચેકર' : (e ? e.name + (e.subject ? ' – ' + e.subject : '') : '');
   if (S.view === 'home' || !e) { S.view = 'home'; app.innerHTML = homeHTML(); bindHome(); return; }
-  const tabs = [['sheet', '📄 શીટ'], ['key', '🔑 ચાવી'], ['scan', '📷 સ્કેન'], ['res', '📊 પરિણામ']];
+  const tabs = [['sheet', '📄 શીટ'], ['key', '🔑 આન્સર કી'], ['scan', '📷 સ્કેન'], ['res', '📊 રિઝલ્ટ']];
   app.innerHTML = `<div class="tabs">${tabs.map(([k, t]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${t}</button>`).join('')}</div><div id="tabBody"></div>`;
   app.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { S.tab = b.dataset.tab; S.scan = null; S.keyScan = false; S.scanErr = ''; render(); window.scrollTo(0, 0); });
   const body = $('#tabBody');
@@ -610,29 +610,29 @@ function homeHTML() {
   return `
   <div class="card">
     <h2>➕ નવી પરીક્ષા</h2>
-    <label class="f">પરીક્ષાનું નામ</label><input type="text" id="nName" placeholder="દા.ત. એકમ કસોટી – 2">
+    <label class="f">પરીક્ષાનું નામ</label><input type="text" id="nName" placeholder="જેમ કે એકમ કસોટી – 2">
     <div class="row">
       <div><label class="f">વિષય</label><input type="text" id="nSub" placeholder="ગણિત"></div>
       <div><label class="f">પ્રશ્નો (1–100)</label><input type="number" id="nN" min="1" max="100" value="20" inputmode="numeric"></div>
     </div>
     <div class="row">
-      <div><label class="f">વિકલ્પ</label><select id="nLab"><option value="4">A B C D</option><option value="5">A B C D E</option></select></div>
+      <div><label class="f">ઓપ્શન</label><select id="nLab"><option value="4">A B C D</option><option value="5">A B C D E</option></select></div>
       <div><label class="f">શીટનો રંગ</label><select id="nCol"><option value="red">લાલ</option><option value="bw">કાળો</option></select></div>
     </div>
-    <label class="f">રોલ નંબરના અંક</label><select id="nRd"><option value="4">4 અંક (દા.ત. 0047)</option><option value="8">8 અંક (દા.ત. GR / UDISE નંબર)</option></select>
+    <label class="f">રોલ નંબર કેટલા આંકડાનો?</label><select id="nRd"><option value="4">4 આંકડા (જેમ કે 0047)</option><option value="8">8 આંકડા (જેમ કે GR નંબર)</option></select>
     <div id="nMarks">${markPickerHTML(draft)}</div>
     <div style="margin-top:14px"><button class="btn block" id="nGo">પરીક્ષા બનાવો</button></div>
   </div>
-  <div class="card"><div class="lhead"><h2>📚 મારી પરીક્ષાઓ</h2>${list.length ? `<button class="mng ${S.manage ? 'on' : ''}" id="mngBtn">${S.manage ? '✓ થઈ ગયું' : '✏️ કાઢવા માટે'}</button>` : ''}</div>
-  ${S.manage && list.length ? '<p class="muted" style="margin:-4px 0 8px;color:var(--bad)">જે પરીક્ષા કાઢવી હોય તેની સામે “કાઢો” દબાવો.</p>' : ''}
-  ${list.length ? list.map((e) => `<div class="exam ${S.manage ? 'manage' : ''}" data-id="${e.id}"><div style="min-width:0"><b>${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}</b><small>${e.n} પ્રશ્નો · ${L4(e).length} વિકલ્પ · ${e.results.length} વિદ્યાર્થી ચકાસ્યા · ${e.key.filter((k) => k >= 0).length === e.n ? 'ચાવી ✓' : 'ચાવી બાકી'}</small></div>${S.manage ? `<button class="del" data-del="${e.id}">🗑 કાઢો</button>` : '<span class="go">›</span>'}</div>`).join('') : '<p class="muted">હજી કોઈ પરીક્ષા નથી. ઉપરથી બનાવો.</p>'}
+  <div class="card"><div class="lhead"><h2>📚 મારી પરીક્ષાઓ</h2>${list.length ? `<button class="mng ${S.manage ? 'on' : ''}" id="mngBtn">${S.manage ? '✓ બસ' : '🗑 ડિલીટ'}</button>` : ''}</div>
+  ${S.manage && list.length ? '<p class="muted" style="margin:-4px 0 8px;color:var(--bad)">જે પરીક્ષા ડિલીટ કરવી હોય તેની સામે “ડિલીટ” દબાવો.</p>' : ''}
+  ${list.length ? list.map((e) => `<div class="exam ${S.manage ? 'manage' : ''}" data-id="${e.id}"><div style="min-width:0"><b>${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}</b><small>${e.n} પ્રશ્ન · ${L4(e).length} ઓપ્શન · ${e.results.length} શીટ ચેક · ${e.key.filter((k) => k >= 0).length === e.n ? 'આન્સર કી ✓' : 'આન્સર કી બાકી'}</small></div>${S.manage ? `<button class="del" data-del="${e.id}">ડિલીટ</button>` : '<span class="go">›</span>'}</div>`).join('') : '<p class="muted">હજી એક પણ પરીક્ષા નથી. ઉપરથી નવી બનાવો.</p>'}
   </div>
   <div class="card muted">
-  <b style="color:var(--ink)">કેવી રીતે વાપરવું</b><br>
-  1. પરીક્ષા બનાવો → <b>શીટ</b> માં PDF ડાઉનલોડ કરી પ્રિન્ટ/ઝેરોક્ષ કરો.<br>
-  2. <b>ચાવી</b> માં સાચા જવાબ ભરો (અથવા ભરેલી શીટ સ્કેન કરો).<br>
-  3. <b>સ્કેન</b> માં દરેક વિદ્યાર્થીની શીટનો ફોટો લો — ગુણ તરત મળશે.<br>
-  4. <b>પરિણામ</b> માંથી Excel ડાઉનલોડ કરો.
+  <b style="color:var(--ink)">કેવી રીતે વાપરવી?</b><br>
+  1. પરીક્ષા બનાવો → <b>શીટ</b> માંથી PDF ડાઉનલોડ કરી પ્રિન્ટ કે ઝેરોક્ષ કરાવો.<br>
+  2. <b>આન્સર કી</b> માં સાચા જવાબ ભરો (અથવા સાચા જવાબ ભરેલી શીટ સ્કેન કરો).<br>
+  3. <b>સ્કેન</b> માં દરેક બાળકની શીટનો ફોટો પાડો — માર્ક્સ તરત આવી જશે.<br>
+  4. <b>રિઝલ્ટ</b> માંથી Excel ડાઉનલોડ કરો.
   </div>`;
 }
 function bindHome() {
@@ -640,7 +640,7 @@ function bindHome() {
   $('#nN').oninput = () => { draft.n = parseInt($('#nN').value) || 0; $('#nMarks .msum').innerHTML = markSummary(draft); };
   $('#nGo').onclick = () => {
     const n = parseInt($('#nN').value);
-    if (!(n >= 1 && n <= 100)) { toast('પ્રશ્નો 1 થી 100 વચ્ચે રાખો'); return; }
+    if (!(n >= 1 && n <= 100)) { toast('પ્રશ્ન 1 થી 100 વચ્ચે રાખો'); return; }
     const e = newExam({ name: $('#nName').value.trim(), subject: $('#nSub').value.trim(), n, opts: +$('#nLab').value, color: $('#nCol').value, rollDigits: +$('#nRd').value });
     e.mark = draft.mark; e.neg = draft.neg;
     S.exams.push(e); Store.save(e);
@@ -662,9 +662,9 @@ function renderSheet(body, e) {
     <div class="row">
       <div><label class="f">રંગ</label><select id="sCol"><option value="red">લાલ</option><option value="bw">કાળો</option></select></div>
     </div>
-    <label class="f">રોલ નંબરના અંક</label><select id="sRd" ${e.results.length ? 'disabled' : ''}><option value="4">4 અંક</option><option value="8">8 અંક</option></select>
-    ${e.results.length ? '<p class="muted" style="margin:4px 0 0">શીટ સ્કેન થઈ ગઈ હોવાથી રોલ અંક બદલી શકાશે નહીં.</p>' : ''}
-    <p class="muted" style="margin:10px 0 0">પ્રશ્નો: <b>${e.n}</b> · વિકલ્પ: <b>${L4(e).join(' ')}</b> (બદલવા માટે નવી પરીક્ષા બનાવો)</p>
+    <label class="f">રોલ નંબર કેટલા આંકડાનો?</label><select id="sRd" ${e.results.length ? 'disabled' : ''}><option value="4">4 આંકડા</option><option value="8">8 આંકડા</option></select>
+    ${e.results.length ? '<p class="muted" style="margin:4px 0 0">શીટ સ્કેન થઈ ગઈ છે, એટલે હવે રોલ નંબરના આંકડા બદલી નહીં શકાય.</p>' : ''}
+    <p class="muted" style="margin:10px 0 0">પ્રશ્નો: <b>${e.n}</b> · ઓપ્શન: <b>${L4(e).join(' ')}</b> (આ બદલવા હોય તો નવી પરીક્ષા બનાવો)</p>
   </div>
   <div class="card">
     <canvas id="prev" class="preview"></canvas>
@@ -672,7 +672,7 @@ function renderSheet(body, e) {
       <button class="btn" id="pdfBtn">⬇ PDF</button>
       <button class="btn sec" id="pngBtn">⬇ ફોટો (PNG)</button>
     </div>
-    <p class="muted" style="margin:10px 0 0">A4 પર “Actual size / 100%” થી પ્રિન્ટ કરો. ચારેય ખૂણાના કાળા ચોરસ કપાવા ન જોઈએ. લાલ શીટને ઝેરોક્ષ કરવી હોય તો “કાળો” રંગ પસંદ કરો.</p>
+    <p class="muted" style="margin:10px 0 0">A4 કાગળ પર “Actual size / 100%” રાખીને પ્રિન્ટ કરો. ચારેય ખૂણાના કાળા ચોરસ કપાવા ન જોઈએ. ઝેરોક્ષ કરાવવી હોય તો “કાળો” રંગ પસંદ કરો.</p>
   </div>`;
   $('#sCol').value = e.color; $('#sRd').value = String(e.rollDigits || 4);
   const draw = async () => {
@@ -700,7 +700,7 @@ function renderSheet(body, e) {
       const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
       doc.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, 210, 297, undefined, 'FAST');
       await download(fname(e, 'pdf', '_OMR'), doc.output('blob'));
-    } catch (err) { toast('PDF ન બન્યું — ઇન્ટરનેટ ચેક કરો'); }
+    } catch (err) { toast('PDF ન બની — ઇન્ટરનેટ ચાલુ છે કે નહીં તે જુઓ'); }
     b.disabled = false; b.textContent = '⬇ PDF';
   };
 }
@@ -711,16 +711,16 @@ function renderKey(body, e) {
   const done = e.key.filter((k) => k >= 0).length;
   body.innerHTML = `
   <div class="card">
-    <h2>🔑 જવાબ ચાવી <span class="pill">${done}/${e.n}</span></h2>
-    <label class="f">ઝડપથી લખો (દા.ત. ${lab.join('')}${lab[1]}${lab[0]}… અથવા 1234…)</label>
+    <h2>🔑 આન્સર કી <span class="pill">${done}/${e.n}</span></h2>
+    <label class="f">એકસાથે લખો (જેમ કે ${lab.join('')}${lab[1]}${lab[0]}… અથવા 1234…)</label>
     <div class="row"><input type="text" id="kTxt" placeholder="${lab.join('')}..." autocapitalize="characters"><button class="btn ghost" id="kApply" style="flex:0 0 auto">ભરો</button></div>
-    <div class="row" style="margin-top:10px"><button class="btn sec" id="kScan">📷 ભરેલી શીટ સ્કેન કરીને ચાવી</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn sec" id="kScan">📷 સાચા જવાબવાળી શીટ સ્કેન કરો</button></div>
   </div>
   <div class="card"><div class="keygrid">${e.key.map((k, i) => `<div class="krow"><span>${i + 1}</span>${lab.map((l, j) => `<button data-q="${i}" data-o="${j}" class="${k === j ? 'on' : ''}">${l}</button>`).join('')}</div>`).join('')}</div></div>
   <div class="card">
-    <h2>ગુણ પદ્ધતિ</h2>
+    <h2>માર્કિંગ</h2>
     ${markPickerHTML(e)}
-    <p class="muted" style="margin:8px 0 0">એક પ્રશ્નમાં બે વર્તુળ ભર્યા હોય તો ખોટો ગણાશે.</p>
+    <p class="muted" style="margin:8px 0 0">એક પ્રશ્નમાં બે ગોળ ભર્યા હોય તો જવાબ ખોટો ગણાશે.</p>
   </div>`;
   body.querySelectorAll('.krow button').forEach((b) => b.onclick = () => {
     const q = +b.dataset.q, o = +b.dataset.o;
@@ -732,11 +732,11 @@ function renderKey(body, e) {
     const no = NO(e), map = new Map();
     'ABCDE'.slice(0, no).split('').forEach((c, i) => { map.set(c, i); map.set(String(i + 1), i); });
     const bad = [...$('#kTxt').value.toUpperCase()].filter((c) => /[A-Z0-9]/.test(c) && !map.has(c));
-    if (bad.length) { toast(`ખોટો અક્ષર: ${[...new Set(bad)].join(' ')} — ફક્ત ${L4(e).join(' ')} વાપરો`); return; }
+    if (bad.length) { toast(`આ અક્ષર ન ચાલે: ${[...new Set(bad)].join(' ')} — ફક્ત ${L4(e).join(' ')} લખો`); return; }
     const chars = [...$('#kTxt').value.toUpperCase()].filter((c) => map.has(c) || c === '-' || c === '_');
-    if (!chars.length) { toast('જવાબ લખો'); return; }
+    if (!chars.length) { toast('પહેલાં જવાબ લખો'); return; }
     chars.slice(0, e.n).forEach((c, i) => e.key[i] = map.has(c) ? map.get(c) : -1);
-    Store.save(e); regradeAll(e); toast(Math.min(chars.length, e.n) + ' જવાબ ભર્યા'); render();
+    Store.save(e); regradeAll(e); toast(Math.min(chars.length, e.n) + ' જવાબ ભરાઈ ગયા'); render();
   };
   bindMarkPicker(body, e, () => { regradeAll(e); saveSoon(e); });
   $('#kScan').onclick = () => { S.tab = 'scan'; S.keyScan = true; S.scan = null; render(); };
@@ -752,17 +752,17 @@ function markPickerHTML(e) {
   const chip = (grp, v, on, txt) => `<button type="button" class="chip ${on ? 'on' : ''}" data-g="${grp}" data-v="${v}">${txt}</button>`;
   const mCustom = !MARKS.includes(e.mark), nCustom = !NEGS.includes(e.neg);
   return `
-  <label class="f">✅ એક સાચા જવાબના ગુણ</label>
-  <div class="chips">${MARKS.map((v) => chip('m', v, e.mark === v, '+' + fmt(v))).join('')}${chip('m', 'c', mCustom, 'બીજું')}</div>
-  <input type="number" class="mcust ${mCustom ? '' : 'hide'}" data-g="m" step="0.01" min="0" value="${e.mark}" inputmode="decimal" placeholder="દા.ત. 1.5" style="margin-top:6px">
-  <label class="f">❌ એક ખોટા જવાબ પર કપાત (માઇનસ)</label>
-  <div class="chips">${NEGS.map((v) => chip('n', v, e.neg === v, v === 0 ? 'માઇનસ નહીં' : '−' + fmt(v))).join('')}${chip('n', 'c', nCustom, 'બીજું')}</div>
-  <input type="number" class="mcust ${nCustom ? '' : 'hide'}" data-g="n" step="0.01" min="0" value="${e.neg}" inputmode="decimal" placeholder="દા.ત. 0.2" style="margin-top:6px">
+  <label class="f">✅ સાચા જવાબના માર્ક્સ</label>
+  <div class="chips">${MARKS.map((v) => chip('m', v, e.mark === v, '+' + fmt(v))).join('')}${chip('m', 'c', mCustom, 'બીજું લખો')}</div>
+  <input type="number" class="mcust ${mCustom ? '' : 'hide'}" data-g="m" step="0.01" min="0" value="${e.mark}" inputmode="decimal" placeholder="જેમ કે 1.5" style="margin-top:6px">
+  <label class="f">❌ ખોટા જવાબ પર માઇનસ</label>
+  <div class="chips">${NEGS.map((v) => chip('n', v, e.neg === v, v === 0 ? 'માઇનસ નહીં' : '−' + fmt(v))).join('')}${chip('n', 'c', nCustom, 'બીજું લખો')}</div>
+  <input type="number" class="mcust ${nCustom ? '' : 'hide'}" data-g="n" step="0.01" min="0" value="${e.neg}" inputmode="decimal" placeholder="જેમ કે 0.2" style="margin-top:6px">
   <p class="muted msum" style="margin:10px 0 0">${markSummary(e)}</p>`;
 }
 function markSummary(e) {
   const tot = Math.round(e.n * e.mark * 100) / 100;
-  return `સાચો: <b style="color:var(--ok)">+${fmt(e.mark)}</b> · ખોટો: <b style="color:var(--bad)">${e.neg ? '−' + fmt(e.neg) : '0'}</b> · છોડેલો: 0 · કુલ ગુણ: <b>${tot}</b>`;
+  return `સાચો: <b style="color:var(--ok)">+${fmt(e.mark)}</b> · ખોટો: <b style="color:var(--bad)">${e.neg ? '−' + fmt(e.neg) : '0'}</b> · છોડેલો: 0 · કુલ માર્ક્સ: <b>${tot}</b>`;
 }
 function bindMarkPicker(root, e, onChange) {
   const sync = () => {
@@ -791,20 +791,20 @@ function renderScan(body, e) {
   const keyed = e.key.filter((k) => k >= 0).length;
   if (!S.scan) {
     body.innerHTML = `
-    ${S.keyScan ? '<div class="note">🔑 <b>ચાવી સ્કેન:</b> સાચા જવાબ ભરેલી શીટનો ફોટો લો. તેના જવાબ ચાવી તરીકે સેવ થશે.</div>' : (keyed === 0 ? '<div class="note">પહેલાં <b>ચાવી</b> ભરો, નહીં તો ગુણ ગણાશે નહીં. (સ્કેન કરેલા જવાબ સેવ રહેશે, ચાવી ભર્યા પછી ગુણ આપોઆપ ગણાશે.)</div>' : '')}
+    ${S.keyScan ? '<div class="note">🔑 <b>આન્સર કી સ્કેન:</b> સાચા જવાબ ભરેલી શીટનો ફોટો પાડો. તેના જવાબ આન્સર કી તરીકે સેવ થશે.</div>' : (keyed === 0 ? '<div class="note">પહેલાં <b>આન્સર કી</b> ભરો, નહીં તો માર્ક્સ નહીં ગણાય. (સ્કેન કરેલી શીટ સેવ રહેશે, આન્સર કી ભર્યા પછી માર્ક્સ જાતે ગણાઈ જશે.)</div>' : '')}
     ${S.scanErr ? `<div class="err">${S.scanErr}</div>` : ''}
     <div class="card" style="text-align:center">
       <div style="font-size:44px">📷</div>
-      <p style="margin:6px 0 14px">${S.keyScan ? 'ચાવીવાળી શીટ' : 'વિદ્યાર્થીની શીટ'}નો ઉપરથી સીધો ફોટો લો</p>
-      <button class="btn block" id="camBtn">${S.busy ? '<span class="spin"></span> તપાસી રહ્યા છીએ…' : 'કેમેરા ખોલો'}</button>
-      <button class="btn ghost block" id="galBtn" style="margin-top:8px">ગેલેરીમાંથી ફોટો</button>
+      <p style="margin:6px 0 14px">${S.keyScan ? 'સાચા જવાબવાળી શીટ' : 'બાળકની શીટ'}નો ઉપરથી સીધો ફોટો પાડો</p>
+      <button class="btn block" id="camBtn">${S.busy ? '<span class="spin"></span> ચેક થાય છે…' : 'કેમેરા ખોલો'}</button>
+      <button class="btn ghost block" id="galBtn" style="margin-top:8px">ગેલેરીમાંથી ફોટો પસંદ કરો</button>
       ${S.keyScan ? '<button class="btn ghost block" id="cancelKey" style="margin-top:8px">રદ કરો</button>' : ''}
     </div>
     <div class="card muted">
-      ✅ શીટ સપાટ ટેબલ પર મૂકો, સારો પ્રકાશ રાખો (પડછાયો નહીં)<br>
+      ✅ શીટ સપાટ ટેબલ પર મૂકો, અજવાળું સારું રાખો (પડછાયો ન પડે)<br>
       ✅ <b>ચારેય ખૂણાના કાળા ચોરસ</b> ફોટામાં આવવા જોઈએ<br>
       ✅ ફોટો થોડો ત્રાંસો કે ઊંધો હોય તો પણ ચાલશે<br>
-      ✅ ફોટા પછી કોઈ જવાબ ખોટો વંચાયો હોય તો તે વર્તુળ પર ટેપ કરી સુધારી શકો
+      ✅ કોઈ જવાબ ખોટો વંચાય તો એ ગોળ પર ટેપ કરીને સુધારી શકાય
     </div>`;
     $('#camBtn').onclick = () => !S.busy && $('#camIn').click();
     $('#galBtn').onclick = () => !S.busy && $('#galIn').click();
@@ -815,20 +815,20 @@ function renderScan(body, e) {
   const multi = r.answers.filter((a) => a === -2).length;
   body.innerHTML = `
   <div class="card">
-    ${S.keyScan ? `<h2>🔑 સ્કેન કરેલી ચાવી</h2><p class="muted" style="margin:0">${r.answers.filter((a) => a >= 0).length}/${e.n} જવાબ મળ્યા${multi ? ` · ${multi} માં બે વર્તુળ` : ''}</p>` : `
+    ${S.keyScan ? `<h2>🔑 સ્કેન કરેલી આન્સર કી</h2><p class="muted" style="margin:0">${r.answers.filter((a) => a >= 0).length}/${e.n} જવાબ મળ્યા${multi ? ` · ${multi} પ્રશ્નમાં બે ગોળ` : ''}</p>` : `
     <div class="row">
       <div><label class="f">રોલ નંબર</label><input type="text" id="rRoll" value="${esc(r.roll)}" inputmode="numeric"></div>
-      <div><label class="f">નામ (વૈકલ્પિક)</label><input type="text" id="rName" value="${esc(r.name || '')}"></div>
+      <div><label class="f">નામ (લખવું હોય તો)</label><input type="text" id="rName" value="${esc(r.name || '')}"></div>
     </div>
-    ${r.roll.includes('?') || !r.roll ? '<p class="muted" style="color:var(--warn);margin:6px 0 0">રોલ નંબર બરાબર વંચાયો નથી — હાથે લખો.</p>' : ''}
-    <div class="stat"><div class="g"><b>${g.correct}</b>સાચા</div><div class="r"><b>${g.wrong}</b>ખોટા</div><div class="y"><b>${g.blank}</b>છોડેલા</div><div><b>${g.score}<small style="font-size:13px">/${g.total}</small></b>ગુણ</div></div>
-    ${multi ? `<p class="muted" style="color:var(--warn);margin:0 0 6px">${multi} પ્રશ્નમાં એકથી વધુ વર્તુળ ભરેલાં છે (ખોટા ગણ્યા).</p>` : ''}`}
-    <div class="row" style="margin-top:8px"><button class="btn" id="rSave">${S.keyScan ? 'ચાવી તરીકે સેવ કરો' : '✓ સેવ કરી આગળ'}</button><button class="btn ghost" id="rRetake" style="flex:0 0 auto">ફરી ફોટો</button></div>
+    ${r.roll.includes('?') || !r.roll ? '<p class="muted" style="color:var(--warn);margin:6px 0 0">રોલ નંબર બરાબર વંચાયો નથી — જાતે લખી દો.</p>' : ''}
+    <div class="stat"><div class="g"><b>${g.correct}</b>સાચા</div><div class="r"><b>${g.wrong}</b>ખોટા</div><div class="y"><b>${g.blank}</b>છોડેલા</div><div><b>${g.score}<small style="font-size:13px">/${g.total}</small></b>માર્ક્સ</div></div>
+    ${multi ? `<p class="muted" style="color:var(--warn);margin:0 0 6px">${multi} પ્રશ્નમાં એકથી વધુ ગોળ ભરેલા છે (ખોટા ગણ્યા).</p>` : ''}`}
+    <div class="row" style="margin-top:8px"><button class="btn" id="rSave">${S.keyScan ? 'આન્સર કી તરીકે સેવ કરો' : '✓ સેવ કરો, આગળ'}</button><button class="btn ghost" id="rRetake" style="flex:0 0 auto">ફરી ફોટો</button></div>
   </div>
   <div class="card">
-    <div class="legend"><span><i style="background:var(--ok)"></i>સાચો</span><span><i style="background:var(--bad)"></i>ખોટો</span><span><i style="border:2px solid #1565c0;width:8px;height:8px"></i>સાચો જવાબ</span><span><i style="background:var(--warn)"></i>બે વર્તુળ</span></div>
+    <div class="legend"><span><i style="background:var(--ok)"></i>સાચો</span><span><i style="background:var(--bad)"></i>ખોટો</span><span><i style="border:2px solid #1565c0;width:8px;height:8px"></i>સાચો જવાબ</span><span><i style="background:var(--warn)"></i>બે ગોળ</span></div>
     <canvas id="resC" class="res"></canvas>
-    <p class="muted" style="margin:8px 0 0">ભૂલથી વંચાયું હોય તો તે વર્તુળ પર ટેપ કરો.</p>
+    <p class="muted" style="margin:8px 0 0">ખોટું વંચાયું હોય તો એ ગોળ પર ટેપ કરીને સુધારો.</p>
   </div>`;
   drawResult(e);
   $('#resC').onclick = (ev) => tapFix(ev, e);
@@ -837,7 +837,7 @@ function renderScan(body, e) {
   $('#rSave').onclick = () => {
     if (S.keyScan) {
       e.key = r.answers.map((a) => (a >= 0 ? a : -1)); regradeAll(e); Store.save(e);
-      S.keyScan = false; S.scan = null; S.tab = 'key'; toast('ચાવી સેવ થઈ'); render(); return;
+      S.keyScan = false; S.scan = null; S.tab = 'key'; toast('આન્સર કી સેવ થઈ ગઈ'); render(); return;
     }
     const roll = (r.roll || '').trim();
     if (!roll || roll.includes('?')) { toast('રોલ નંબર લખો'); $('#rRoll').focus(); return; }
@@ -845,7 +845,7 @@ function renderScan(body, e) {
     const i = e.results.findIndex((x) => x.roll === roll);
     if (i >= 0) { if (!rec.name) rec.name = e.results[i].name; e.results[i] = rec; } else e.results.push(rec);
     Store.save(e);
-    toast(`રોલ ${roll}: ${rec.score}/${rec.total} સેવ ${i >= 0 ? '(અપડેટ)' : ''}`);
+    toast(`રોલ ${roll}: ${rec.score}/${rec.total} સેવ થયું ${i >= 0 ? '(જૂનું બદલાયું)' : ''}`);
     S.scan = null; render();
   };
 }
@@ -866,12 +866,12 @@ async function handleFile(file) {
     const d = c.getContext('2d').getImageData(0, 0, c.width, c.height);
     const res = OMR.readSheet(OMR.toGray(d.data, c.width, c.height), e.n, e.rollDigits || 4, NO(e));
     if (!res.ok) {
-      S.scanErr = res.error === 'markers' ? '❌ શીટના <b>ચાર ખૂણાના કાળા ચોરસ</b> મળ્યા નહીં. આખી શીટ ફોટામાં આવે, ઘાટી પાછળની સપાટી પર મૂકો અને ફરી ફોટો લો.' : '❌ શીટની દિશા ઓળખાઈ નહીં. આ એપમાંથી બનાવેલી શીટ જ વાપરો અને ફરી ફોટો લો.';
+      S.scanErr = res.error === 'markers' ? '❌ શીટના <b>ચાર ખૂણાના કાળા ચોરસ</b> દેખાયા નહીં. આખી શીટ ફોટામાં આવે એમ, થોડી ઘાટી સપાટી પર મૂકીને ફરી ફોટો પાડો.' : '❌ શીટ ઓળખાઈ નહીં. આ એપમાંથી બનાવેલી શીટ જ વાપરો અને ફરી ફોટો પાડો.';
     } else {
       S.scan = { ...res, img: c, name: '' };
-      if (res.quality < 0.35) toast('ફોટો ઝાંખો છે — જવાબ ધ્યાનથી ચકાસો');
+      if (res.quality < 0.35) toast('ફોટો ઝાંખો છે — જવાબ એકવાર જોઈ લો');
     }
-  } catch (err) { S.scanErr = '❌ ફોટો ખુલ્યો નહીં. ફરી પ્રયત્ન કરો.'; }
+  } catch (err) { S.scanErr = '❌ ફોટો ખૂલ્યો નહીં. ફરી પ્રયત્ન કરો.'; }
   S.busy = false; render(); window.scrollTo(0, 0);
 }
 $('#camIn').onchange = (ev) => { handleFile(ev.target.files[0]); ev.target.value = ''; };
@@ -917,7 +917,7 @@ function tapFix(ev, e) {
 function renderRes(body, e) {
   const R = e.results.slice().sort((a, b) => (parseInt(a.roll) || 0) - (parseInt(b.roll) || 0) || String(a.roll).localeCompare(b.roll));
   const lab = L4(e);
-  if (!R.length) { body.innerHTML = '<div class="card"><p class="muted">હજી કોઈ શીટ સ્કેન નથી કરી. <b>સ્કેન</b> ટેબમાં જાઓ.</p></div><div class="card"><button class="btn ghost block" id="delExam" style="color:var(--bad)">🗑 આ પરીક્ષા કાઢી નાખો</button></div>'; $('#delExam').onclick = () => deleteExam(e); return; }
+  if (!R.length) { body.innerHTML = '<div class="card"><p class="muted">હજી એક પણ શીટ સ્કેન નથી થઈ. <b>સ્કેન</b> ટેબમાં જાઓ.</p></div><div class="card"><button class="btn ghost block" id="delExam" style="color:var(--bad)">🗑 આ પરીક્ષા ડિલીટ કરો</button></div>'; $('#delExam').onclick = () => deleteExam(e); return; }
   const total = R[0].total, avg = R.reduce((s, r) => s + r.score, 0) / R.length;
   const qStat = e.key.map((k, i) => (k < 0 ? null : R.filter((r) => r.answers[i] === k).length));
   body.innerHTML = `
@@ -927,12 +927,12 @@ function renderRes(body, e) {
     <button class="btn block" id="xlsBtn">⬇ Excel ડાઉનલોડ</button>
   </div>
   <div class="card" style="padding:6px 8px">
-    <table><thead><tr><th>રોલ</th><th>નામ</th><th>✓</th><th>✗</th><th>–</th><th>ગુણ /${total}</th></tr></thead>
+    <table><thead><tr><th>રોલ</th><th>નામ</th><th>✓</th><th>✗</th><th>–</th><th>માર્ક્સ /${total}</th></tr></thead>
     <tbody>${R.map((r) => `<tr class="cl" data-roll="${esc(r.roll)}"><td><b>${esc(r.roll)}</b></td><td>${esc(r.name) || '<span class="muted">—</span>'}</td><td style="color:var(--ok)">${r.correct}</td><td style="color:var(--bad)">${r.wrong}</td><td>${r.blank}</td><td><b>${r.score}</b></td></tr>`).join('')}</tbody></table>
   </div>
-  <div class="card"><h2>પ્રશ્નવાર વિશ્લેષણ</h2><p class="muted" style="margin-top:-4px">કેટલા વિદ્યાર્થીએ સાચો જવાબ આપ્યો</p>
+  <div class="card"><h2>દરેક પ્રશ્નનું એનાલિસિસ</h2><p class="muted" style="margin-top:-4px">કેટલાં બાળકોએ સાચો જવાબ આપ્યો</p>
   <table><tbody>${qStat.map((c, i) => c === null ? '' : `<tr><td style="width:40px">${i + 1}</td><td style="width:30px">${lab[e.key[i]]}</td><td><div class="bar"><i style="width:${Math.round(c / R.length * 100)}%;background:${c / R.length < 0.4 ? 'var(--bad)' : 'var(--ok)'}"></i></div></td><td style="width:70px;text-align:right">${c}/${R.length}</td></tr>`).join('')}</tbody></table></div>
-  <div class="card"><button class="btn ghost block" id="delExam" style="color:var(--bad)">🗑 આ પરીક્ષા કાઢી નાખો</button></div>`;
+  <div class="card"><button class="btn ghost block" id="delExam" style="color:var(--bad)">🗑 આ પરીક્ષા ડિલીટ કરો</button></div>`;
   body.querySelectorAll('tr.cl').forEach((tr) => tr.onclick = () => showStudent(e, tr.dataset.roll));
   $('#xlsBtn').onclick = () => exportXlsx(e, R);
   $('#delExam').onclick = () => deleteExam(e);
@@ -942,26 +942,26 @@ function showStudent(e, roll) {
   const lab = L4(e);
   const cells = r.answers.map((a, i) => { const k = e.key[i]; const t = a >= 0 ? lab[a] : a === -2 ? '**' : '–'; const col = k < 0 ? '#555' : a === k ? 'var(--ok)' : a === -1 ? 'var(--mut)' : 'var(--bad)'; return `<span style="display:inline-block;width:52px;font-size:13px">${i + 1}.<b style="color:${col}">${t}</b></span>`; }).join('');
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="card"><h2>રોલ ${esc(r.roll)} ${esc(r.name)}</h2><div class="stat"><div class="g"><b>${r.correct}</b>સાચા</div><div class="r"><b>${r.wrong}</b>ખોટા</div><div><b>${r.score}/${r.total}</b>ગુણ</div></div>
+  m.innerHTML = `<div class="card"><h2>રોલ ${esc(r.roll)} ${esc(r.name)}</h2><div class="stat"><div class="g"><b>${r.correct}</b>સાચા</div><div class="r"><b>${r.wrong}</b>ખોટા</div><div><b>${r.score}/${r.total}</b>માર્ક્સ</div></div>
   <label class="f">નામ</label><input type="text" id="mName" value="${esc(r.name)}">
   <div style="margin:10px 0;max-height:200px;overflow:auto">${cells}</div>
   <button class="btn block" id="mOk">બરાબર</button>
-  <button class="btn ghost block" id="mDel" style="color:var(--bad);margin-top:18px;font-size:13px">🗑 આ વિદ્યાર્થીનું પરિણામ કાઢો</button></div>`;
+  <button class="btn ghost block" id="mDel" style="color:var(--bad);margin-top:18px;font-size:13px">🗑 આ વિદ્યાર્થીનું રિઝલ્ટ ડિલીટ કરો</button></div>`;
   document.body.appendChild(m);
   m.onclick = (ev) => { if (ev.target === m) m.remove(); };
   $('#mOk', m).onclick = () => { const n = $('#mName', m).value.trim(); if (n !== r.name) { r.name = n; Store.save(e); } m.remove(); render(); };
-  $('#mDel', m).onclick = () => { m.remove(); confirmBox(`રોલ <b>${esc(r.roll)}</b> ${esc(r.name)} નું પરિણામ કાઢી નાખવું છે?`, '🗑 કાઢી નાખો', () => { e.results = e.results.filter((x) => x !== r); Store.save(e); toast('પરિણામ કાઢી નાખ્યું'); render(); }); };
+  $('#mDel', m).onclick = () => { m.remove(); confirmBox(`રોલ <b>${esc(r.roll)}</b> ${esc(r.name)} નું રિઝલ્ટ ડિલીટ કરવું છે?`, 'હા, ડિલીટ કરો', () => { e.results = e.results.filter((x) => x !== r); Store.save(e); toast('રિઝલ્ટ ડિલીટ થઈ ગયું'); render(); }); };
 }
 function deleteExam(e) {
   if (!e) return;
   const n = e.results.length;
-  confirmBox(`<b>“${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}”</b> પરીક્ષા કાઢી નાખવી છે?${n ? `<br><span style="color:var(--bad)">તેનાં ${n} વિદ્યાર્થીઓનાં પરિણામ પણ કાઢી નખાશે.</span>` : ''}<br><span class="muted">આ પાછું લાવી શકાશે નહીં.</span>`, '🗑 કાઢી નાખો', () => {
-    S.exams = S.exams.filter((x) => x.id !== e.id); Store.remove(e.id); S.view = 'home'; S.scan = null; if (!S.exams.length) S.manage = false; toast('પરીક્ષા કાઢી નાખી'); render();
+  confirmBox(`<b>“${esc(e.name)}${e.subject ? ' – ' + esc(e.subject) : ''}”</b> પરીક્ષા ડિલીટ કરવી છે?${n ? `<br><span style="color:var(--bad)">તેમાં સ્કેન કરેલાં ${n} વિદ્યાર્થીનાં રિઝલ્ટ પણ ડિલીટ થઈ જશે.</span>` : ''}<br><span class="muted">ડિલીટ કર્યા પછી પાછું નહીં આવે.</span>`, 'હા, ડિલીટ કરો', () => {
+    S.exams = S.exams.filter((x) => x.id !== e.id); Store.remove(e.id); S.view = 'home'; S.scan = null; if (!S.exams.length) S.manage = false; toast('પરીક્ષા ડિલીટ થઈ ગઈ'); render();
   });
 }
 function confirmBox(msg, okText, fn) {
   const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="card"><p>${msg}</p><div class="row"><button class="btn ghost" id="cNo">રદ કરો</button><button class="btn danger" id="cOk">${okText}</button></div></div>`;
+  m.innerHTML = `<div class="card"><p>${msg}</p><div class="row"><button class="btn ghost" id="cNo">ના, રહેવા દો</button><button class="btn danger" id="cOk">${okText}</button></div></div>`;
   document.body.appendChild(m);
   m.onclick = (ev) => { if (ev.target === m) m.remove(); };
   $('#cOk', m).onclick = () => { m.remove(); fn(); };
@@ -972,22 +972,22 @@ async function exportXlsx(e, R) {
   try {
     await loadLib('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX);
     const lab = L4(e);
-    const head = ['રોલ નંબર', 'નામ', 'સાચા', 'ખોટા', 'છોડેલા', 'ગુણ', 'કુલ ગુણ', 'ટકા'];
+    const head = ['રોલ નંબર', 'નામ', 'સાચા', 'ખોટા', 'છોડેલા', 'માર્ક્સ', 'કુલ માર્ક્સ', 'ટકા'];
     for (let i = 1; i <= e.n; i++) head.push('પ્ર ' + i);
     const rows = [head];
     R.forEach((r) => rows.push([String(r.roll), r.name, r.correct, r.wrong, r.blank, r.score, r.total, r.total ? Math.round(r.score / r.total * 1000) / 10 : 0,
       ...r.answers.map((a) => (a >= 0 ? lab[a] : a === -2 ? '**' : ''))]));
-    rows.push([]); rows.push(['ગુણ પદ્ધતિ', `સાચો +${fmt(e.mark)}, ખોટો ${e.neg ? '−' + fmt(e.neg) : '0'}`]); rows.push(['જવાબ ચાવી', '', '', '', '', '', '', '', ...e.key.map((k) => (k >= 0 ? lab[k] : ''))]);
+    rows.push([]); rows.push(['માર્કિંગ', `સાચો +${fmt(e.mark)}, ખોટો ${e.neg ? '−' + fmt(e.neg) : '0'}`]); rows.push(['આન્સર કી', '', '', '', '', '', '', '', ...e.key.map((k) => (k >= 0 ? lab[k] : ''))]);
     const ws1 = XLSX.utils.aoa_to_sheet(rows);
     ws1['!cols'] = [{ wch: 10 }, { wch: 22 }, { wch: 7 }, { wch: 7 }, { wch: 8 }, { wch: 7 }, { wch: 8 }, { wch: 7 }];
     const q = [['પ્રશ્ન', 'સાચો જવાબ', 'સાચા આપનાર', 'ખોટા', 'છોડેલા', 'સાચા %']];
     e.key.forEach((k, i) => { if (k < 0) return; const c = R.filter((r) => r.answers[i] === k).length, bl = R.filter((r) => r.answers[i] === -1).length; q.push([i + 1, lab[k], c, R.length - c - bl, bl, Math.round(c / R.length * 1000) / 10]); });
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, 'પરિણામ');
+    XLSX.utils.book_append_sheet(wb, ws1, 'રિઝલ્ટ');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(q), 'પ્રશ્નવાર');
     const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-    await download(fname(e, 'xlsx', '_પરિણામ'), new Blob([out]));
-  } catch (err) { toast('Excel ન બન્યું — ઇન્ટરનેટ ચેક કરો'); }
+    await download(fname(e, 'xlsx', '_રિઝલ્ટ'), new Blob([out]));
+  } catch (err) { toast('Excel ન બની — ઇન્ટરનેટ ચાલુ છે કે નહીં તે જુઓ'); }
   b.disabled = false; b.textContent = '⬇ Excel ડાઉનલોડ';
 }
 
@@ -1011,7 +1011,7 @@ render();
     const remoteIds = new Set(remote.map((x) => x.id));
     for (const l of S.exams) { const r = remote.find((x) => x.id === l.id); if (!remoteIds.has(l.id) || (l.updatedAt || 0) > (r.updatedAt || 0)) Store.save(l); }
     Store.saveLocal(S.exams);
-    $('#sync').textContent = '☁ સેવ';
+    $('#sync').textContent = '☁ ઓનલાઇન સેવ';
     if (changed && !S.scan && !S.busy && !document.querySelector('.modal') && !(document.activeElement && /INPUT|SELECT/.test(document.activeElement.tagName))) render();
   } catch (e) {}
 })();
