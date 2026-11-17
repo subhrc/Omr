@@ -82,38 +82,49 @@ tr.cl{cursor:pointer}
 (function (G) {
   'use strict';
   const PAGE = { w: 210, h: 297 };
-  // marker centres, clockwise from top-left (mm)
-  const MK = [{ x: 12, y: 12 }, { x: 198, y: 12 }, { x: 198, y: 285 }, { x: 12, y: 285 }];
-  const MK_SIZE = 7;
-  const BAR = { x: 24, y: 140, w: 9, h: 50 }; // barcode area = orientation check
+  // scan markers (black squares), clockwise from top-left (mm) — same spots as the red squares on printed OMR sheets
+  const MK = [{ x: 16, y: 8 }, { x: 194, y: 8 }, { x: 194, y: 238 }, { x: 16, y: 238 }];
+  const MK_SIZE = 5.5;
+  const BAR = { x: 28, y: 122, w: 13, h: 46 }; // barcode block = orientation key
   const BR = 2.0; // answer bubble radius
-  const RBR = 1.8; // roll bubble radius
-  const ROLL = { cx: 38, y0: 41, dy: 4.5 };
-  const rollDx = (d) => (d === 8 ? 5.4 : 8);
-  const rollX = (d, i) => ROLL.cx - ((d - 1) * rollDx(d)) / 2 + i * rollDx(d);
-  const GRID = { x0: 44, colW: 37.5, optX: 13.5, optDx: 7, y0: 106, dy: 5.5, gGap: 2, cols: 4 };
+  const RBR = 1.6; // roll bubble radius
+  const TOP = { y0: 12, digitY0: 36, digitDy: 4.3, box: { x: 13, w: 67 } };
+  const GRID = { x0: 48, colW: 37.25, cols: 4, qnoW: 8.6, top: 82 };
   const FONT = "'Noto Sans Gujarati','Shruti','Nirmala UI',sans-serif";
   const THEMES = {
-    red: { ink: '#d32f2f', shade: '#f8d6d6', band: '#f2b5b5', letter: '#d32f2f' },
-    bw: { ink: '#000000', shade: '#e6e6e6', band: '#cfcfcf', letter: '#777777' },
+    red: { ink: '#d32f2f', shade: '#f8d6d6', band: '#f3c2c2', letter: '#d32f2f', strip: '#d32f2f' },
+    bw: { ink: '#000000', shade: '#e6e6e6', band: '#d6d6d6', letter: '#777777', strip: '#555555' },
   };
 
   const nOpts = (no) => (no === 5 ? 5 : 4);
   function optLabels(no) {
     return ['A', 'B', 'C', 'D', 'E'].slice(0, nOpts(no));
   }
-  function rowY(r) { return GRID.y0 + r * GRID.dy + Math.floor(r / 5) * GRID.gGap; }
+  function geo(rows) {
+    // more rows -> tighter spacing so 100 questions still fit above the footer
+    const dense = rows > 20;
+    return { dy: dense ? 5.0 : 6.2, gap: dense ? 1.5 : 2.5, y0: GRID.top + 14.5 };
+  }
+  function rowYg(g, r) { return g.y0 + r * g.dy + Math.floor(r / 5) * g.gap; }
+  // roll-number columns inside the left half of the candidate box
+  function rollX(rd, i) {
+    const dx = rd === 8 ? 3.9 : 6;
+    const cx = TOP.box.x + TOP.box.w / 4;
+    return cx - ((rd - 1) * dx) / 2 + i * dx;
+  }
 
   function layout(n, rd, no) {
+    n = Math.max(1, Math.min(100, n | 0));
     rd = rd === 8 ? 8 : 4;
     no = nOpts(no);
-    const ox = no === 5 ? 12.5 : GRID.optX, odx = no === 5 ? 5.5 : GRID.optDx;
-    n = Math.max(1, Math.min(100, n | 0));
-    const cols = GRID.cols, rows = Math.ceil(n / cols);
+    const cols = GRID.cols, rows = Math.ceil(n / cols), g = geo(rows);
+    const span = GRID.colW - GRID.qnoW; // bubble area width
+    const odx = no === 5 ? 5.4 : 6.8;
+    const ox = GRID.qnoW + (span - (no - 1) * odx) / 2;
     const q = [];
     for (let i = 0; i < n; i++) {
       const c = Math.floor(i / rows), r = i % rows;
-      const bx = GRID.x0 + c * GRID.colW, y = rowY(r);
+      const bx = GRID.x0 + c * GRID.colW, y = rowYg(g, r);
       const opts = [];
       for (let k = 0; k < no; k++) opts.push({ x: bx + ox + k * odx, y, r: BR });
       q.push({ num: i + 1, x: bx, y, r, c, opts });
@@ -121,10 +132,10 @@ tr.cl{cursor:pointer}
     const roll = [];
     for (let d = 0; d < rd; d++) {
       const col = [];
-      for (let k = 0; k < 10; k++) col.push({ x: rollX(rd, d), y: ROLL.y0 + k * ROLL.dy, r: RBR });
+      for (let k = 0; k < 10; k++) col.push({ x: rollX(rd, d), y: TOP.digitY0 + k * TOP.digitDy, r: RBR });
       roll.push(col);
     }
-    return { n, rd, no, cols, rows, q, roll };
+    return { n, rd, no, cols, rows, g, q, roll };
   }
 
   function sheetNo(exam) {
@@ -144,11 +155,17 @@ tr.cl{cursor:pointer}
     ctx.fillRect(0, 0, mm(PAGE.w), mm(PAGE.h));
 
     const text = (t, x, y, size, opt = {}) => {
-      ctx.font = `${opt.bold ? '700 ' : ''}${mm(size)}px ${FONT}`;
+      ctx.font = `${opt.bold ? '700 ' : ''}${opt.italic ? 'italic ' : ''}${mm(size)}px ${FONT}`;
       ctx.textAlign = opt.align || 'left';
       ctx.textBaseline = opt.base || 'alphabetic';
       ctx.fillStyle = opt.color || T.ink;
       ctx.fillText(t, mm(x), mm(y), opt.max ? mm(opt.max) : undefined);
+    };
+    const vtext = (t, x, y, size, opt = {}) => { // rotated 90° (reads bottom→top)
+      ctx.save(); ctx.translate(mm(x), mm(y)); ctx.rotate(-Math.PI / 2);
+      ctx.font = `${opt.bold ? '700 ' : ''}${mm(size)}px ${FONT}`;
+      ctx.fillStyle = opt.color || T.ink; ctx.textAlign = opt.align || 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(t, 0, 0, opt.max ? mm(opt.max) : undefined); ctx.restore();
     };
     const line = (x1, y1, x2, y2, w = 0.3) => {
       ctx.strokeStyle = T.ink; ctx.lineWidth = mm(w);
@@ -161,119 +178,147 @@ tr.cl{cursor:pointer}
     const bubble = (x, y, r, label, size) => {
       ctx.beginPath(); ctx.arc(mm(x), mm(y), mm(r), 0, Math.PI * 2);
       ctx.fillStyle = '#fff'; ctx.fill();
-      ctx.strokeStyle = T.ink; ctx.lineWidth = mm(0.25); ctx.stroke();
-      text(String(label), x, y + 0.12, size, { align: 'center', base: 'middle', color: T.letter });
+      ctx.strokeStyle = T.ink; ctx.lineWidth = mm(0.22); ctx.stroke();
+      text(String(label), x, y + 0.1, size, { align: 'center', base: 'middle', color: T.letter });
+    };
+    // a block of digit columns: header lines, write boxes, 0-9 bubbles
+    const digitBlock = (xs, bw) => {
+      xs.forEach((x) => {
+        rect(x - bw / 2, 27.5, bw, 5, 0.25);
+        for (let k = 0; k < 10; k++) bubble(x, TOP.digitY0 + k * TOP.digitDy, RBR, k, 1.9);
+      });
     };
 
-    // corner markers (black, needed for scanning)
+    // scan markers
     ctx.fillStyle = '#000';
     for (const m of MK) ctx.fillRect(mm(m.x - MK_SIZE / 2), mm(m.y - MK_SIZE / 2), mm(MK_SIZE), mm(MK_SIZE));
 
-    /* ---- top-left: roll number ---- */
-    rect(16, 18, 44, 67);
-    rect(16, 18, 44, 6, 0.35);
-    text('(વિદ્યાર્થીએ ભરવું)', 38, 22.4, 2.7, { align: 'center', bold: true });
-    text('રોલ નંબર', 38, 27.6, 2.8, { align: 'center' });
-    text('Roll No.', 38, 31, 2.5, { align: 'center' });
-    const bw = L.rd === 8 ? 4.8 : 6.8;
-    for (let d = 0; d < L.rd; d++) {
-      const x = rollX(L.rd, d);
-      rect(x - bw / 2, 32.6, bw, 5, 0.3);
-      L.roll[d].forEach((b, k) => bubble(b.x, b.y, b.r, k, 2.2));
-    }
+    /* ===== top-left: candidate box (Roll No + Main Test Booklet No) ===== */
+    const bx = TOP.box.x, bw = TOP.box.w, half = bw / 2, boxBottom = 79;
+    rect(bx, 12, bw, boxBottom - 12, 0.4);
+    rect(bx, 12, bw, 5, 0.3);
+    text('(વિદ્યાર્થીએ ભરવું / To be filled by the Candidate)', bx + bw / 2, 15.6, 2.25, { align: 'center', italic: true, max: bw - 2 });
+    line(bx + half, 17, bx + half, boxBottom, 0.35);
+    line(bx, 25.5, bx + bw, 25.5, 0.3);
+    text('રોલ નંબર', bx + half / 2, 20.6, 2.4, { align: 'center' });
+    text('Roll No.', bx + half / 2, 24, 2.3, { align: 'center' });
+    text('મુખ્ય પ્રશ્ન પુસ્તિકા નં.', bx + half * 1.5, 20.6, 2.3, { align: 'center', max: half - 1.5 });
+    text('Main Test Booklet No.', bx + half * 1.5, 24, 2.2, { align: 'center', max: half - 1.5 });
+    digitBlock(L.roll.map((c) => c[0].x), L.rd === 8 ? 3.7 : 5.6);
+    const bookX = []; for (let i = 0; i < 7; i++) bookX.push(bx + half + half / 2 - 3 * 4.25 + i * 4.25);
+    digitBlock(bookX, 4.05);
 
-    /* ---- middle: name etc ---- */
-    text('વિદ્યાર્થીનું નામ (સ્પષ્ટ અક્ષરોમાં)', 64, 21.5, 3.1, { bold: true });
-    text('NAME OF THE STUDENT', 64, 25.2, 2.7, { bold: true });
-    rect(64, 27, 86, 14);
-    text('ધોરણ / Std.', 64, 47, 2.9, { bold: true });
-    rect(64, 48.5, 40, 10);
-    text('તારીખ / Date', 110, 47, 2.9, { bold: true });
-    rect(110, 48.5, 40, 10);
-    text('પરીક્ષા / EXAM', 64, 64.5, 2.9, { bold: true });
-    rect(64, 66, 86, 19);
-    const ex = exam.name || '', sb = exam.subject || '';
-    if (ex) text(ex, 107, 74, 3.6, { align: 'center', bold: true, max: 82, color: '#000' });
-    if (sb) text(sb, 107, 81, 3.2, { align: 'center', max: 82, color: '#000' });
+    /* ===== middle: names ===== */
+    const mx = 84, mw = 73;
+    text('વિદ્યાર્થીનું નામ (મોટા અક્ષરોમાં)', mx, 16, 3.1, { bold: true, max: mw });
+    text('NAME OF THE CANDIDATE (IN CAPITAL LETTERS)', mx, 20.3, 2.75, { bold: true, max: mw });
+    rect(mx, 22.5, mw, 21, 0.35);
+    text('પિતાનું નામ (મોટા અક્ષરોમાં)', mx, 52, 3.1, { bold: true, max: mw });
+    text("FATHER'S NAME (IN CAPITAL LETTERS)", mx, 56.3, 2.75, { bold: true, max: mw });
+    rect(mx, 58.5, mw, 20.5, 0.35);
 
-    /* ---- right: teacher ---- */
-    rect(154, 18, 40, 67);
-    rect(154, 18, 40, 6, 0.35);
-    text('(શિક્ષકે ભરવું)', 174, 22.4, 2.7, { align: 'center', bold: true });
-    const tb = [['કુલ પ્રશ્નો / Total Q.', String(L.n)], ['સાચા જવાબ / Correct', ''], ['મેળવેલ ગુણ / Marks', '']];
-    tb.forEach(([lab, val], i) => {
-      const y = 29 + i * 18.5;
-      text(lab, 174, y, 2.5, { align: 'center', max: 37 });
-      rect(160, y + 2, 28, 11, 0.3);
-      if (val) text(val, 174, y + 9.8, 5, { align: 'center', bold: true, color: '#000' });
+    /* ===== top-right: invigilator box ===== */
+    const ix = 160, iw = 37, gw = iw / 4;
+    rect(ix, 12, iw, boxBottom - 12, 0.4);
+    rect(ix, 12, iw, 5, 0.3);
+    text('(નિરીક્ષકે ભરવું / To be filled by the Invigilator)', ix + iw / 2, 15.6, 2.05, { align: 'center', italic: true, max: iw - 1.5 });
+    line(ix, 25.5, ix + iw, 25.5, 0.3);
+    [['રાજ્ય', 'State'], ['જિલ્લો', 'Distt.'], ['તાલુકો', 'Block'], ['કેન્દ્ર', 'Centre']].forEach(([gu, en], i) => {
+      const x0 = ix + i * gw;
+      if (i) line(x0, 17, x0, boxBottom, 0.3);
+      text(gu, x0 + gw / 2, 20.6, 2.1, { align: 'center', max: gw - 0.8 });
+      text(en, x0 + gw / 2, 24, 2.1, { align: 'center', max: gw - 0.8 });
+      digitBlock([x0 + gw / 2 - 2.05, x0 + gw / 2 + 2.05], 3.7);
     });
 
-    /* ---- answers ---- */
-    const gx0 = GRID.x0, gw = GRID.colW * GRID.cols;
-    const top = GRID.y0 - 13.5;
-    rect(gx0, top, gw, 6, 0.35, T.band);
-    text('જવાબો  /  ANSWERS', gx0 + gw / 2, top + 4.5, 3.6, { align: 'center', bold: true });
-    const shTop = top + 6, gridBottom = rowY(L.rows - 1) + 3.2;
+    /* ===== exam name line ===== */
+    const ex = [exam.name, exam.subject].filter(Boolean).join(' – ');
+    if (ex) text('પરીક્ષા : ' + ex, GRID.x0, 80.9, 2.6, { color: '#000', max: 100 });
+
+    /* ===== answers grid ===== */
+    const gx0 = GRID.x0, gwid = GRID.colW * GRID.cols, g = L.g;
+    rect(gx0, GRID.top + 1, gwid, 6, 0.35, T.band);
+    text('જવાબો  /  ANSWERS', gx0 + gwid / 2, GRID.top + 5.4, 3.7, { align: 'center', bold: true });
+    const shTop = GRID.top + 8, gridBottom = rowYg(g, L.rows - 1) + g.dy / 2 + 0.6;
     for (let c = 0; c < GRID.cols; c++) {
-      const bx = gx0 + c * GRID.colW;
-      // group shading (checkerboard like printed OMR)
-      for (let g = 0; g * 5 < L.rows; g++) {
-        if ((g + c) % 2 === 0) continue;
-        const r0 = g * 5, r1 = Math.min(L.rows - 1, r0 + 4);
+      const cx = gx0 + c * GRID.colW;
+      for (let gi = 0; gi * 5 < L.rows; gi++) {
+        if ((gi + c) % 2 === 0) continue;
+        const r0 = gi * 5, r1 = Math.min(L.rows - 1, r0 + 4);
         ctx.fillStyle = T.shade;
-        ctx.fillRect(mm(bx), mm(rowY(r0) - 2.75), mm(GRID.colW), mm(rowY(r1) - rowY(r0) + 5.5));
+        ctx.fillRect(mm(cx), mm(rowYg(g, r0) - g.dy / 2), mm(GRID.colW), mm(rowYg(g, r1) - rowYg(g, r0) + g.dy));
       }
-      rect(bx, shTop, GRID.colW, 4.5, 0.3);
-      text('પ્ર.નં.', bx + 4.6, shTop + 3.3, 2.3, { align: 'center' });
-      text('જવાબ / Response', bx + 23.5, shTop + 3.3, 2.4, { align: 'center' });
-      line(bx + 9.2, shTop, bx + 9.2, gridBottom, 0.3);
-      rect(bx, shTop, GRID.colW, gridBottom - shTop, 0.35);
+      rect(cx, shTop, GRID.colW, 4.5, 0.3);
+      text('Q.No.', cx + GRID.qnoW / 2, shTop + 3.2, 2.2, { align: 'center' });
+      text('જવાબ / Response', cx + GRID.qnoW + (GRID.colW - GRID.qnoW) / 2, shTop + 3.2, 2.3, { align: 'center' });
+      line(cx + GRID.qnoW, shTop, cx + GRID.qnoW, gridBottom, 0.3);
+      rect(cx, shTop, GRID.colW, gridBottom - shTop, 0.4);
     }
     for (const q of L.q) {
-      text(String(q.num).padStart(2, '0'), q.x + 4.6, q.y + 1, 2.8, { align: 'center', color: '#222' });
-      q.opts.forEach((o, k) => bubble(o.x, o.y, o.r, labels[k], 2.4));
+      text(String(q.num).padStart(2, '0'), q.x + GRID.qnoW / 2, q.y + 1, 2.8, { align: 'center', color: '#222' });
+      q.opts.forEach((o, k) => bubble(o.x, o.y, o.r, labels[k], 2.3));
     }
 
-    /* ---- left strip: barcode + info ---- */
-    rect(17, 108, 24, 88, 0.3);
-    ctx.save(); ctx.translate(mm(20.2), mm(193)); ctx.rotate(-Math.PI / 2);
-    ctx.font = `${mm(2.4)}px ${FONT}`; ctx.fillStyle = T.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('ઉત્તરપત્રિકા નં. / Sheet No.', 0, 0);
-    ctx.restore();
-    // barcode (decorative but also orientation key)
+    /* ===== left column: barcode + booklet code ===== */
+    // corner brackets around barcode
+    const bx0 = 20, bx1 = 37, by0 = 96, by1 = 148;
+    [[bx0, by0, 1, 1], [bx1, by0, -1, 1], [bx0, by1, 1, -1], [bx1, by1, -1, -1]].forEach(([x, y, sx, sy]) => {
+      line(x, y, x + sx * 2.5, y, 0.3); line(x, y, x, y + sy * 2.5, 0.3);
+    });
+    vtext('ઉત્તરપત્રિકા નં. / Answer Sheet No.', 17.3, (by0 + by1) / 2, 2.2, { max: by1 - by0 });
     const no = sheetNo(exam);
     ctx.fillStyle = '#000';
     let y = BAR.y - BAR.h / 2, seed = +no;
     while (y < BAR.y + BAR.h / 2 - 0.5) {
       seed = (seed * 1103515245 + 12345) >>> 0;
-      const bh = 0.7 + (seed % 5) * 0.25, gap = 0.45 + ((seed >> 4) % 3) * 0.2;
+      const bh = 0.7 + (seed % 5) * 0.25, gp = 0.45 + ((seed >> 4) % 3) * 0.2;
       ctx.fillRect(mm(BAR.x - BAR.w / 2), mm(y), mm(BAR.w), mm(Math.min(bh, BAR.y + BAR.h / 2 - y)));
-      y += bh + gap;
+      y += bh + gp;
     }
-    ctx.save(); ctx.translate(mm(35.5), mm(BAR.y)); ctx.rotate(-Math.PI / 2);
-    ctx.font = `700 ${mm(3.6)}px ${FONT}`; ctx.fillStyle = T.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(no, 0, 0);
-    ctx.restore();
-    // question-count box
-    rect(17, 200, 24, 34, 0.3);
-    text('પ્રશ્ન સંખ્યા', 29, 205, 2.4, { align: 'center' });
-    text('Questions', 29, 208.5, 2.3, { align: 'center' });
-    text(String(L.n), 29, 222, 8, { align: 'center', bold: true, color: '#000' });
+    vtext(no, 40.3, BAR.y, 3.4, { bold: true });
+    // main booklet code box
+    const kx = 19, kw = 26, ky = 160, kh = Math.max(50, Math.min(gridBottom - ky, 66));
+    rect(kx, ky, kw, kh, 0.35);
+    line(kx, ky + 8, kx + kw, ky + 8, 0.3);
+    text('મુખ્ય પુસ્તિકા કોડ', kx + kw / 2, ky + 3.4, 2.3, { align: 'center', max: kw - 1 });
+    text('Main Booklet Code', kx + kw / 2, ky + 6.8, 2.1, { align: 'center', max: kw - 1 });
+    text(String(exam.set || 'A').slice(0, 2), kx + kw / 2, ky + 18, 7, { align: 'center' });
+    ctx.fillStyle = T.ink; ctx.beginPath(); ctx.arc(mm(kx + 6.5), mm(ky + 26), mm(1.4), 0, Math.PI * 2); ctx.fill();
 
-    /* ---- footer ---- */
-    const fy = Math.max(gridBottom + 5, 238);
-    rect(16, fy, 104, 13, 0.3);
-    text('ઉત્તરપત્રિકા નિરીક્ષકને આપતા પહેલાં વિદ્યાર્થીએ રોલ નંબર બરાબર લખી', 18, fy + 4.2, 2.45, { max: 100 });
-    text('અને વર્તુળ ભરી દીધા છે તે ચકાસવું. કાળી/વાદળી બોલપેનથી વર્તુળ પૂરું ભરો.', 18, fy + 7.7, 2.45, { max: 100 });
-    text('Fill the circle completely with black/blue ball pen. One answer only.', 18, fy + 11.1, 2.3, { max: 100 });
-    const sy = fy + 16, sh = Math.min(279 - sy, 20);
-    rect(16, sy, 51, sh, 0.3);
-    rect(69, sy, 51, sh, 0.3);
-    text('વિદ્યાર્થીની સહી / Student\'s Sign', 41.5, sy + sh - 2, 2.3, { align: 'center', max: 49 });
-    text('નિરીક્ષકની સહી / Invigilator\'s Sign', 94.5, sy + sh - 2, 2.3, { align: 'center', max: 49 });
-    rect(124, fy, 70, sy + sh - fy, 0.3);
-    text('શાળાનો સિક્કો', 159, fy + 5, 2.8, { align: 'center', bold: true });
-    text('SCHOOL STAMP', 159, fy + 9, 2.5, { align: 'center' });
+    /* ===== footer ===== */
+    const fy = 244, fb = 287;
+    // decorative side strips
+    const strip = (x0) => {
+      rect(x0, fy, 5, fb - fy, 0.3);
+      ctx.strokeStyle = T.strip; ctx.lineWidth = mm(0.2);
+      for (let yy = fy + 1.6; yy < fb - 0.8; yy += 2.2) for (let xx = x0 + 1.25; xx < x0 + 5; xx += 2.5) {
+        ctx.beginPath(); ctx.arc(mm(xx), mm(yy), mm(0.7), 0, Math.PI * 2); ctx.stroke();
+      }
+    };
+    strip(13); strip(192);
+    // instruction box
+    rect(20, fy, 107, 19, 0.35);
+    text('ઉત્તરપત્રિકા નિરીક્ષકને સોંપતા પહેલાં ઉમેદવારે ચકાસવું કે રોલ નંબર અને મુખ્ય', 22, fy + 4.3, 2.55, { max: 103, color: '#000' });
+    text('પ્રશ્ન પુસ્તિકા નંબર બરાબર લખ્યા છે અને તેનાં વર્તુળ સાચી રીતે ભર્યાં છે.', 22, fy + 8, 2.55, { max: 103, color: '#000' });
+    text('Before handing over the OMR Sheet to the Invigilator, the candidate should check that', 22, fy + 12.3, 2.35, { max: 103, color: '#000' });
+    text('roll number and main test booklet number are filled in and marked correctly.', 22, fy + 15.9, 2.35, { max: 103, color: '#000' });
+    // signatures
+    rect(20, fy + 20.5, 52.5, fb - fy - 20.5, 0.35);
+    rect(74.5, fy + 20.5, 52.5, fb - fy - 20.5, 0.35);
+    text('વિદ્યાર્થીની સહી / Signature of Candidate', 46.25, fb - 2, 2.2, { align: 'center', max: 50, color: '#000' });
+    text('નિરીક્ષકની સહી / Signature of Invigilator', 100.75, fb - 2, 2.2, { align: 'center', max: 50, color: '#000' });
+    // centre stamp box
+    const sx = 129, sw = 61;
+    rect(sx, fy, sw, fb - fy, 0.35);
+    text('નિરીક્ષકે કેન્દ્રનો સિક્કો મારવો', sx + sw / 2, fy + 4.6, 2.6, { align: 'center', bold: true, max: sw - 2, color: '#000' });
+    text('INVIGILATOR PUT CENTRE STAMP INDICATING', sx + sw / 2, fy + 8.6, 2.3, { align: 'center', bold: true, max: sw - 2, color: '#000' });
+    text('STATE, DISTT., BLOCK & CENTRE CODE', sx + sw / 2, fy + 12, 2.3, { align: 'center', bold: true, max: sw - 2, color: '#000' });
+    const cy = fb - 9;
+    line(sx, cy, sx + sw, cy, 0.3);
+    ['STATE', 'DISTT.', 'BLOCK', 'CENTRE'].forEach((t, i) => {
+      if (i) line(sx + (i * sw) / 4, cy, sx + (i * sw) / 4, fb, 0.3);
+      text(t, sx + (i + 0.5) * sw / 4, fb - 3.2, 2.3, { align: 'center', color: '#888' });
+    });
     ctx.restore();
   }
 
@@ -465,7 +510,7 @@ tr.cl{cursor:pointer}
     if (!best || scs.length < 2 || scs[0] - scs[1] < 25) return { ok: false, error: 'orientation' };
     const H = best.H;
     const L = layout(n, rd, no);
-    const K = MK.reduce((s, m) => s + circleScore(Gimg, H, m.x, m.y, 2.3, 5.5), 0) / 4;
+    const K = MK.reduce((s, m) => s + circleScore(Gimg, H, m.x, m.y, 1.8, 4.3), 0) / 4;
     const qScores = L.q.map((q) => q.opts.map((o) => circleScore(Gimg, H, o.x, o.y, o.r * 0.62, o.r + 0.6)));
     const rScores = L.roll.map((row) => row.map((o) => circleScore(Gimg, H, o.x, o.y, o.r * 0.62, o.r + 0.6)));
     const all = qScores.flat().concat(rScores.flat()).sort((a, b) => a - b);
@@ -544,7 +589,7 @@ window.addEventListener('pagehide', flushSaves);
 function newExam(o) {
   const n = Math.max(1, Math.min(100, parseInt(o.n) || 20));
   return { id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: o.name || 'પરીક્ષા', subject: o.subject || '', std: o.std || '',
-    n, rollDigits: o.rollDigits === 8 ? 8 : 4, opts: o.opts === 5 ? 5 : 4, color: o.color || 'red', key: Array(n).fill(-1), mark: 1, neg: 0, results: [], createdAt: Date.now(), updatedAt: Date.now() };
+    n, rollDigits: o.rollDigits === 8 ? 8 : 4, opts: o.opts === 5 ? 5 : 4, set: 'A', color: o.color || 'red', key: Array(n).fill(-1), mark: 1, neg: 0, results: [], createdAt: Date.now(), updatedAt: Date.now() };
 }
 
 function grade(exam, answers) {
@@ -661,6 +706,7 @@ function renderSheet(body, e) {
     </div>
     <div class="row">
       <div><label class="f">રંગ</label><select id="sCol"><option value="red">લાલ</option><option value="bw">કાળો</option></select></div>
+      <div><label class="f">પુસ્તિકા કોડ (સેટ)</label><select id="sSet"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
     </div>
     <label class="f">રોલ નંબર કેટલા આંકડાનો?</label><select id="sRd" ${e.results.length ? 'disabled' : ''}><option value="4">4 આંકડા</option><option value="8">8 આંકડા</option></select>
     ${e.results.length ? '<p class="muted" style="margin:4px 0 0">શીટ સ્કેન થઈ ગઈ છે, એટલે હવે રોલ નંબરના આંકડા બદલી નહીં શકાય.</p>' : ''}
@@ -674,7 +720,7 @@ function renderSheet(body, e) {
     </div>
     <p class="muted" style="margin:10px 0 0">A4 કાગળ પર “Actual size / 100%” રાખીને પ્રિન્ટ કરો. ચારેય ખૂણાના કાળા ચોરસ કપાવા ન જોઈએ. ઝેરોક્ષ કરાવવી હોય તો “કાળો” રંગ પસંદ કરો.</p>
   </div>`;
-  $('#sCol').value = e.color; $('#sRd').value = String(e.rollDigits || 4);
+  $('#sCol').value = e.color; $('#sSet').value = e.set || 'A'; $('#sRd').value = String(e.rollDigits || 4);
   const draw = async () => {
     await fontsReady();
     const c = $('#prev'); if (!c) return;
@@ -683,9 +729,9 @@ function renderSheet(body, e) {
     OMR.drawSheet(c.getContext('2d'), s, e);
   };
   draw();
-  const upd = () => { e.name = $('#sName').value.trim() || 'પરીક્ષા'; e.subject = $('#sSub').value.trim(); e.color = $('#sCol').value; e.rollDigits = +$('#sRd').value; saveSoon(e); $('#title').textContent = e.name + (e.subject ? ' – ' + e.subject : ''); draw(); };
+  const upd = () => { e.name = $('#sName').value.trim() || 'પરીક્ષા'; e.subject = $('#sSub').value.trim(); e.color = $('#sCol').value; e.set = $('#sSet').value; e.rollDigits = +$('#sRd').value; saveSoon(e); $('#title').textContent = e.name + (e.subject ? ' – ' + e.subject : ''); draw(); };
   ['sName', 'sSub'].forEach((id) => $('#' + id).oninput = upd);
-  ['sCol', 'sRd'].forEach((id) => $('#' + id).onchange = upd);
+  ['sCol', 'sSet', 'sRd'].forEach((id) => $('#' + id).onchange = upd);
   $('#pngBtn').onclick = async () => {
     await fontsReady();
     const c = sheetCanvas(e, 10);
